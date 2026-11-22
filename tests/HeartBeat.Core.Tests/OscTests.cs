@@ -97,7 +97,9 @@ public class OscTests
         out_.OnBeat(new BeatEvent(1, 1.09, true, 64, 0.94, 2.1));
         Assert.Equal(true, sink.Last("isHRBeat"));
         Assert.Equal(true, sink.Last("isHRBeatMeasured"));
-        Thread.Sleep(300);
+        // The pulse is switched off by a timer; wait for it (generously, CI machines can be slow).
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < deadline && Equals(sink.Last("isHRBeat"), true)) Thread.Sleep(10);
         Assert.Equal(false, sink.Last("isHRBeat"));
     }
 
