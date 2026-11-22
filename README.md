@@ -2,12 +2,12 @@
 
 This project has heavily relied on AI assisted coding.
 
-# For AI assistants
+## For AI assistants
 
-Everything technical is in [docs/for-ai](docs/for-ai/README.md).
+[docs/for-ai](docs/for-ai/README.md).
 
 # NOT FOR MEDICAL USE
-Do not use for medical or heath.
+Do not use for medicine or heath.
 
 # VirtualHeartBeatMonitor
 
