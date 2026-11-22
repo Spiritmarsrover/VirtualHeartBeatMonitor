@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>HeartBeat.Core</RootNamespace>
+    <!-- Pure signal processing: no OpenVR, no UI, no package dependencies. -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+
+</Project>

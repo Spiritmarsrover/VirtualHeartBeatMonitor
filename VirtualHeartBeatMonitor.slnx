@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HeartBeat.App/HeartBeat.App.csproj" />
+    <Project Path="src/HeartBeat.Core/HeartBeat.Core.csproj" />
+    <Project Path="src/HeartBeat.Osc/HeartBeat.Osc.csproj" />
+    <Project Path="src/HeartBeat.Tracking/HeartBeat.Tracking.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HeartBeat.Core.Tests/HeartBeat.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Probe/Probe.csproj" />
+    <Project Path="tools/Replay/Replay.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>HeartBeat.Osc</RootNamespace>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HeartBeat.Core\HeartBeat.Core.csproj" />
+  </ItemGroup>
+
+</Project>

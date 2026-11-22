@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>HeartBeat.Probe</RootNamespace>
+    <AssemblyName>Probe</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HeartBeat.Tracking\HeartBeat.Tracking.csproj" />
+  </ItemGroup>
+
+</Project>

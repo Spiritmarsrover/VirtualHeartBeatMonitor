@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>HeartBeat.Tracking</RootNamespace>
+    <!-- The generated OpenVR binding is not nullable-annotated and uses obsolete patterns. -->
+    <NoWarn>$(NoWarn);CS0618;CS0649;CS0169;CS0414;CS8600;CS8601;CS8602;CS8603;CS8604;CS8605;CS8618;CS8625</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Official Valve OpenVR SDK v2.15.6 (BSD-3-Clause), vendored in lib/openvr -->
+    <Compile Include="..\..\lib\openvr\openvr_api.cs" Link="OpenVR\openvr_api.cs" />
+    <None Include="..\..\lib\openvr\openvr_api.dll" Link="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

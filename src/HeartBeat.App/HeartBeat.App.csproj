@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>HeartBeat.App</RootNamespace>
+    <AssemblyName>HeartBeatMonitor</AssemblyName>
+    <Product>VirtualHeartBeatMonitor</Product>
+    <Version>0.1.0</Version>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- Release package: one self-contained exe (no .NET install needed), openvr_api.dll bundled inside. -->
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\app.ico" LogicalName="app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HeartBeat.Core\HeartBeat.Core.csproj" />
+    <ProjectReference Include="..\HeartBeat.Osc\HeartBeat.Osc.csproj" />
+    <ProjectReference Include="..\HeartBeat.Tracking\HeartBeat.Tracking.csproj" />
+  </ItemGroup>
+
+</Project>
