@@ -1,4 +1,9 @@
-# AI Disclosure
+# VirtualHeartBeatMonitor
+
+Shows your heart rate in VR when sitting still, measured from the motion sensors in your headset and controllers.
+Sends it to VRChat over OSC.
+
+## AI Disclosure
 
 This project has heavily relied on AI assisted coding.
 
@@ -6,13 +11,9 @@ This project has heavily relied on AI assisted coding.
 
 [docs/for-ai](docs/for-ai/README.md).
 
-# NOT FOR MEDICAL USE
+## NOT FOR MEDICAL USE
 Do not use for medicine or heath.
 
-# VirtualHeartBeatMonitor
-
-Shows your heart rate in VR when sitting still, measured from the motion sensors in your headset and controllers.
-Sends it to VRChat over OSC.
 
 ## What it does
 
