@@ -1,7 +1,18 @@
+# AI Disclosure
+
+This project has heavily relied on AI assisted coding.
+
+# For AI assistants
+
+Everything technical is in [docs/for-ai](docs/for-ai/README.md).
+
+#NOT FOR MEDICAL USE
+Do not use for medical or heath.
+
 # VirtualHeartBeatMonitor
 
-Shows your heart rate in VR, measured from the motion sensors in your headset and controllers.
-No heart-rate strap needed. Sends it to VRChat over OSC.
+Shows your heart rate in VR when sitting still, measured from the motion sensors in your headset and controllers.
+Sends it to VRChat over OSC.
 
 ## What it does
 
@@ -10,10 +21,24 @@ No heart-rate strap needed. Sends it to VRChat over OSC.
 - Shows it on your wrist and in a "Heart rate" tab in the SteamVR dashboard.
 - Optional: vibrates your controllers on each beat, measures breathing with a chest tracker.
 
-## Status
+## How Does it Work?
 
-Early. Tested on Bigscreen Beyond + Index controllers + Vive trackers. Other headsets are
-untested. If it doesn't work on yours, please send a diagnostics report (below).
+Ballistocardiography is the study of forces on the body created by the heart.
+By analyzing the angular defection of the controllers, headset or trackers, a heart rate can be measured. 
+This is done with filters, enveloping and a Fast Fourier Transform. 
+
+TLDR; your body twiches with every heart beat, VR devices can read that and this project analyzes that to produce a heart rate.
+
+## Accuracy 
+Testing by counting beats and comparing to the number from VHBM show to be within 5 BPM. 
+Using real heart rate monitors to compare is not yet done.
+In testing sometimes it will report really high or really low depending on the vibration of the trackers and moving status of each.
+Please do not use results for any medical use. 
+
+## Tested Devices
+1. Bigscreen Beyond 1
+2. Valve Index Controllers
+3. VIVE Tracker
 
 ## Install
 
@@ -27,10 +52,6 @@ untested. If it doesn't work on yours, please send a diagnostics report (below).
 Click **Create diagnostics report** (window, tray menu, or the SteamVR dashboard tab) and sit
 still for one minute. A zip appears on your Desktop: send it to me. It contains your device
 list, one minute of motion data and the app's logs. Serial numbers are masked.
-
-## For developers and AI assistants
-
-Everything technical is in [docs/for-ai](docs/for-ai/README.md).
 
 ## License
 
