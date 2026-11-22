@@ -6,7 +6,7 @@ This project has heavily relied on AI assisted coding.
 
 Everything technical is in [docs/for-ai](docs/for-ai/README.md).
 
-#NOT FOR MEDICAL USE
+# NOT FOR MEDICAL USE
 Do not use for medical or heath.
 
 # VirtualHeartBeatMonitor
