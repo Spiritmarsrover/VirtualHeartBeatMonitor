@@ -7,7 +7,7 @@
     <RootNamespace>HeartBeat.App</RootNamespace>
     <AssemblyName>HeartBeatMonitor</AssemblyName>
     <Product>VirtualHeartBeatMonitor</Product>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
