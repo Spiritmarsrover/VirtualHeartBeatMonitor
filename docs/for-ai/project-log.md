@@ -364,3 +364,63 @@ VirtualHeartBeatMonitor.sln
 - **Expected reliability:** usable only while still. The stillness gate and confidence value
   make that explicit instead of showing wrong numbers.
 - **Self-labelling from the chest device** can hide errors. Get a BLE strap before final tuning.
+
+## 2026-11-22: Steam Frame eye-camera PPG experiment (tools/EyePpg)
+
+Idea: the Frame's IR eye-tracking cameras see skin around the eyes; camera PPG may give a pulse
+that does not need stillness of the body the way BCG does. Prior work: egoPPG (ICCV 2025, Project
+Aria eye cameras, ~7.7 BPM MAE with a neural net) and Eye-PPG (VR headset IR eye cameras).
+
+- No official API for eye images (OpenXR/OpenVR give gaze only). Community FrameEyeCameraFeed
+  borrows XRService's DMA-BUFs on the headset (root) and serves MJPEG per eye: 512x400 8-bit,
+  ~60 Hz, JPEG quality configurable (default 80). Exposure/gain exist in the buffer but are not
+  streamed. Babble Frame Runtime reads the same cameras on-headset.
+- `EyePpg record` stores 8x8 block means (ushort, mean x64) per frame plus host arrival time, and
+  the SteamVR IMU in Probe's CSV format (same folder, same clock).
+- `EyePpg analyze`: 30 Hz resample, blink/gap/IMU-motion masking, 0.7–3.5 Hz band-pass per block;
+  per-block "enrichment" at the reference rate vs decoy rates (honest chance check); reference-free
+  HR from the most peaked blocks that agree on a rate, 12 s sliding FFT, compared to reference.
+- Synthetic check: noise only -> "no pulse"; injected 0.3 % -> 0.7 BPM MAE; 0.05 % -> 0.8 BPM.
+- Open: first real recording on the owner's Frame; JPEG quantization vs the ~0.1–1 % IR
+  pulse amplitude. (Raw IMU over SteamVR: answered below, no.)
+- Decision pending: if it works, same repo with a Frame target sharing HeartBeat.Core.
+- Probe check on the Frame (SteamVR 2.19.4, tracking system `cv`, HMD model "Deckard MP",
+  controllers "Roy_Left/Right"): **no raw IMU** (`/devices/cv/<serial>/imu` ->
+  IOBuffer_PathDoesNotExist for all three). Pose velocities update ~287/s (HMD) and ~195/s
+  (controllers). So v0.1.0 cannot measure on the Frame; a pose-based fallback is needed, and the
+  eye experiment has no IMU reference or IMU motion mask: use a counted pulse / `--ref`.
+
+### 2026-11-22: first Frame results (TEST 1, seated still 150 s, counted pulse 58 before / 64 after)
+
+Recordings: `recordings/20261122_183622_eyes_test1-still` + `recordings/*_frame-poses-test1`
+(an earlier take, `20261122_182738_*`, is spoiled by head movement: the start was not announced).
+
+- **Pose-based HR works on the Frame.** HMD `vAngularVelocity` (~287 updates/s) fed to the
+  unchanged engine as the gyro: shown ~100 % of the still time, prominence 8–53, steady 58–66,
+  median 62.9 BPM (counted 58 -> 64). This is the path to Frame / inside-out support on PC.
+- **Eye cameras: a real but weak pulse.** What worked: average the steady skin blocks into one ROI
+  (block mean > 40 and raw relative std < 8 %: 644 / 525 blocks), mask frames whose ROI
+  frame-difference is an outlier (median x (1 + 8 x 1.4826); 17–24 % cut), band-pass 0.7–3.5 Hz,
+  12 s FFT. The tool's per-block "most peaked blocks" method did not work on real data (gaze
+  movement and dark, noisy images: ROI noise 0.13–0.15 % in band, mean brightness ~37/255).
+  Against the pose HR: eye 1 power at the reference 4.0x vs decoys 1.4x, spectral peak within
+  5 BPM in 62 % of windows (chance ~7 %), MAE 6.3; eye 0 weaker (2.0x vs 1.6x, 20 %). Injected
+  pulses on the same data: 0.15 % -> ~7.6x / 88 %, so the real pulse is roughly 0.1 % of skin
+  brightness. A recurring ~48–50 BPM peak in both eyes is an artefact of unknown origin.
+- Stream was capped at 30 fps with JPEG q95; 60 fps or raw frames on the headset would lower noise.
+- Diagnostic scripts used: scratch file-based C# apps (ROI + pose engine); the ROI method still
+  needs porting into `EyePpg analyze`.
+
+### 2026-11-22: pose fallback in the app (Frame live test, TEST 2)
+
+- `LiveSession` uses pose angular velocity for devices without raw IMU (details in
+  steamvr-and-app.md); `Recording.Load` reads `poses_*.csv` when there is no `imu_*.csv`
+  (`RecordedDevice.FromPose`), so Replay and diagnostics zips work for Frame users.
+- Replay of TEST 1 poses: HMD alone shown 96 %, median 62.8; with the (resting) controllers fused
+  85 % -> pose-based controllers default to off.
+- `HeartRateFusion` release rule added (3 confident updates > 12 BPM from the shown value -> jump
+  to the raw peak): synthetic pose-like 58 BPM locked on 116 without it. Replay of all 11
+  recordings: identical results before/after.
+- Live (dev build, `--no-osc --diagnostics`, Frame worn, seated): after settling, shown
+  continuously 59–63 BPM, HMD prominence 27–173; capture shown 68 % incl. the start movement.
+  A resting Frame controller also tracked 55–62 BPM (prominence 8–15), worth revisiting.

@@ -57,8 +57,9 @@ Users click "Create diagnostics report" (or run `--diagnostics`). They sit still
    number is shown, and whether the peak matches a plausible resting rate.
 3. If the IMU did not open (`IOBuffer_PathDoesNotExist` or similar):
    - Try other paths: the driver may use a different tracking-system name, or none.
-   - Otherwise build the pose-based fallback, using `poses_*.csv` (angular velocity from
-     `TrackedDevicePose_t`) as test data. Check its update rate first: about 90 Hz or more is
+   - Otherwise the pose fallback is used automatically (`signal from pose` in the report).
+     `tools/Replay` reads `poses_*.csv` when there is no `imu_*.csv` (angular velocity from
+     `TrackedDevicePose_t` as the gyro). Check the update rate: about 90 Hz or more is
      needed for the 4–20 Hz band.
 4. Look at `app.log` for connection, panel and error history, and at `crash.log` if present.
 5. Any device-specific handling belongs in `LiveSession.Classify` / `ImuStream.CandidatePaths`

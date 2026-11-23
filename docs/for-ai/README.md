@@ -32,13 +32,16 @@ vibration and finds its repetition rate with an FFT over 6–12 s windows.
 
 - Developed and tested on: Bigscreen Beyond 1 + Valve Index controllers + Vive trackers
   (Lighthouse). Every device exposes raw IMU data there.
-- **Not yet supported or tested: Steam Frame and other inside-out headsets.** Whether they expose
-  raw IMU data is unknown. If they don't, a pose-based fallback (using
-  `TrackedDevicePose_t.vAngularVelocity`) has to be built. See workflows.md.
+- **Steam Frame: supported through the pose fallback** (no raw IMU; head pose angular velocity
+  is used instead, see steamvr-and-app.md). Other inside-out headsets should take the same path
+  but are untested; streamed headsets (Quest via Link/VD/ALVR) may send too few or predicted poses.
 - Accuracy on the owner's recordings, while still: 0.4–0.9 BPM mean difference from a
   chest-tracker reference. The number is shown 96–98% of the time sitting or standing still,
   about 40% with frequent small movements, and rarely while talking (by design it shows "--"
   then).
+
+- Experiment in progress: heart rate from the Steam Frame's eye cameras, `tools/EyePpg` (see
+  its README and the 2026-11-22 section of project-log.md).
 
 ## Ground rules
 

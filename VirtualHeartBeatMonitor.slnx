@@ -9,6 +9,7 @@
     <Project Path="tests/HeartBeat.Core.Tests/HeartBeat.Core.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/EyePpg/EyePpg.csproj" />
     <Project Path="tools/Probe/Probe.csproj" />
     <Project Path="tools/Replay/Replay.csproj" />
   </Folder>

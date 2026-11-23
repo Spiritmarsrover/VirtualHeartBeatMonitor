@@ -21,6 +21,19 @@ manifest) the app exits when SteamVR quits.
 - Streams silent for 5 s are reopened. The engine updates on a clock tick, so silence turns into
   "--" rather than a frozen value.
 
+## Pose fallback (no raw IMU: Steam Frame and other inside-out headsets)
+
+- A device whose IMU path cannot be opened uses the pose instead (`LiveSession`, `UsesPose`):
+  a `PosePoller` at 1 kHz (raw uncalibrated universe), keeping only polls where the velocity
+  changed (= new driver update), and feeds `vAngularVelocity` (rad/s) to the engine as the gyro,
+  with zero acceleration and host-clock time. Samples are queued and pushed on the reader thread
+  (`OnTick`), so the engine stays single-threaded. Breathing is off for pose devices.
+- Steam Frame (SteamVR 2.19.4, tracking system `cv`): HMD ~287 updates/s, controllers
+  ~195–208/s. Head pose works well while still (see project-log 2026-11-22).
+- Pose-based controllers start switched off (resting controllers only added noise in TEST 1);
+  the user can switch them on. Raw-IMU controllers keep the old default.
+- Diagnostics poll poses at 1 kHz too and report `signal from raw IMU / pose` per device.
+
 ## Overlays
 
 - **Wrist panel** (`WristOverlay`): attached to a controller with

@@ -28,7 +28,10 @@ in project-log.md).
    - a soft continuity prior around the last confident value (σ 12 BPM, floor 0.35);
    - rejecting peaks within 2 BPM of the grid edges;
    - confidence = clamp((prominence − 5) / (10 − 5));
-   - EMA smoothing (α 0.35).
+   - EMA smoothing (α 0.35);
+   - release: if the confident raw peak stays more than 12 BPM from the shown value for 3 updates
+     in a row, the shown value jumps to it (prevents staying locked on a harmonic picked while
+     settling; no change on any recording, found with pose-like synthetic data).
 5. Display rule: show a number only if confidence ≥ 0.5 and the estimate is not held. Held means
    no usable spectrum this update (all devices moving, warming up, no clear peak). Otherwise "--".
 6. A device sits out of fusion while it is moving, not receiving (no samples for 1 s), or switched

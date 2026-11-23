@@ -38,7 +38,7 @@ public sealed class DiagnosticsCapture
         _devices = session.GetDevices();
         session.RawImu += OnImu;
         session.SnapshotReady += OnSnapshot;
-        _poller = new PosePoller(session.Runtime.System, _devices.Select(d => d.Info.Index), 500, (in PoseSample p) =>
+        _poller = new PosePoller(session.Runtime.System, _devices.Select(d => d.Info.Index), 1000, (in PoseSample p) =>
         {
             if (p.VelocityChanged) _poses.GetOrAdd(p.Device, _ => new()).Enqueue(p);
         });
@@ -145,7 +145,7 @@ public static class DiagnosticsReport
         {
             var i = d.Info;
             r.AppendLine($"#{i.Index} {i.Kind}  model '{i.Model}'  maker '{i.Manufacturer}'  tracking '{i.TrackingSystem}'  type '{i.ControllerType}'  serial {MaskSerial(i.Serial)}");
-            r.AppendLine($"    role {d.Role}, used {(d.UsedForHeartRate ? "yes" : "no")}, raw IMU {(d.Stream != null ? "open" : "NOT available")}{(d.Status.Length > 0 ? $" ({d.Status})" : "")}");
+            r.AppendLine($"    role {d.Role}, used {(d.UsedForHeartRate ? "yes" : "no")}, raw IMU {(d.Stream != null ? "open" : "NOT available")}, signal from {d.Source}{(d.Status.Length > 0 ? $" ({d.Status})" : "")}");
             foreach (var a in d.ImuAttempts) r.AppendLine($"    IMU open: {a}");
 
             var imu = c.Imu(d.Id).ToList();
@@ -235,6 +235,7 @@ public static class DiagnosticsReport
                 role = d.Role.ToString(),
                 used = d.UsedForHeartRate,
                 rawImu = d.Stream != null,
+                source = d.Source,
             }),
         };
         File.WriteAllText(Path.Combine(dir, "session.json"), JsonSerializer.Serialize(session, new JsonSerializerOptions { WriteIndented = true }));

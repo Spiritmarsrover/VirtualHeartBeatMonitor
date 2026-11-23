@@ -41,7 +41,14 @@ public sealed class HeartRateFusion
     /// </summary>
     public double ConfidentThreshold { get; set; } = 0.5;
     public double EdgeMarginBpm { get; set; } = 2.0;
+    /// <summary>
+    /// Confident updates in a row with the raw peak more than <see cref="PriorSigmaBpm"/> away from the
+    /// shown value before the shown value jumps to the raw peak. Found with pose-like synthetic data
+    /// (2026-11-22): a 5 s harmonic pick while settling otherwise stayed locked at 2x indefinitely.
+    /// </summary>
+    public int ReleaseAfterUpdates { get; set; } = 3;
 
+    private int _disagreeing;
     private double _bpm = double.NaN;
     private double _confidence;
     private double _lastTime = double.NaN;
@@ -95,7 +102,14 @@ public sealed class HeartRateFusion
         if (rawBpm <= grid[0] + EdgeMarginBpm || rawBpm >= grid[^1] - EdgeMarginBpm) confidence = 0;
         if (confidence <= 0) return Hold(time, dt, prominence, usable.Count);
 
-        _bpm = double.IsNaN(_bpm) || _confidence < ConfidentThreshold
+        // Release the prior when the confident raw peak has stayed far away for a few updates in a
+        // row: the shown value is stuck (typically on a harmonic picked up while settling).
+        _disagreeing = confidence >= ConfidentThreshold && !double.IsNaN(_bpm) && Math.Abs(rawBpm - _bpm) > PriorSigmaBpm
+            ? _disagreeing + 1 : 0;
+        bool release = _disagreeing >= ReleaseAfterUpdates;
+        if (release) { bpm = rawBpm; _disagreeing = 0; }
+
+        _bpm = double.IsNaN(_bpm) || _confidence < ConfidentThreshold || release
             ? bpm
             : _bpm + SmoothingAlpha * (bpm - _bpm);
         _confidence = confidence;

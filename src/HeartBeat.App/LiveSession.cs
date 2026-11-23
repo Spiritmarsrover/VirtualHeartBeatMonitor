@@ -9,6 +9,8 @@ namespace HeartBeat.App;
 /// <summary>
 /// Connects SteamVR to the engine: finds devices, opens their raw IMU streams, maps each
 /// device's clock onto the PC clock, and runs the engine on the IMU reader thread.
+/// Devices without raw IMU (Steam Frame and other inside-out headsets) fall back to the pose's
+/// angular velocity, polled at 1 kHz and fed to the engine in place of the gyro.
 /// Call <see cref="Poll"/> regularly from the main thread (events, presence, new devices).
 /// </summary>
 public sealed class LiveSession : IDisposable
@@ -20,6 +22,9 @@ public sealed class LiveSession : IDisposable
         public required string Id;
         public volatile bool UsedForHeartRate;
         public ImuStream? Stream;
+        /// <summary>No raw IMU: the pose's angular velocity is used instead.</summary>
+        public volatile bool UsesPose;
+        public string Source => Stream != null ? "raw IMU" : UsesPose ? "pose" : "none";
         public string Status = "";
         public double ClockOffset = double.NaN; // host time - device sample time
         public long Samples;
@@ -35,6 +40,11 @@ public sealed class LiveSession : IDisposable
     private readonly object _devicesGate = new();
     private readonly Dictionary<ImuStream, DeviceEntry> _byStream = new();
     private ImuReader? _reader;
+    private PosePoller? _posePoller;
+    private Dictionary<uint, DeviceEntry> _poseByIndex = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(DeviceEntry entry, double t, Vec3 gyro)> _poseQueue = new();
+    /// <summary>Pose polling rate for devices without raw IMU (Frame HMD updates ~290/s, controllers ~195/s).</summary>
+    private const double PosePollHz = 1000;
     private double _latest = double.NegativeInfinity;
     private double _nextRefresh;
 
@@ -52,6 +62,9 @@ public sealed class LiveSession : IDisposable
 
     /// <summary>Every raw IMU sample (reader thread), used by the diagnostics recorder.</summary>
     public event Action<DeviceEntry, double, ImuSample_t>? RawImu;
+
+    /// <summary>Every new pose of a pose-fallback device (pose thread).</summary>
+    public event Action<DeviceEntry, PoseSample>? RawPose;
 
     /// <summary>A message that replaces the status line everywhere (e.g. diagnostics progress).</summary>
     public volatile string? Notice;
@@ -127,13 +140,46 @@ public sealed class LiveSession : IDisposable
             entry.Reopens++;
             OpenStream(entry);
         }
+        bool posesChanged = false;
         foreach (var entry in added)
         {
             if (OpenStream(entry))
                 Engine.AddDevice(entry.Id, entry.Role, useForHeartRate: entry.UsedForHeartRate, useForBreathing: entry.Role == DeviceRole.Chest);
+            else
+            {
+                // Pose fallback: rotation only (breathing needs the accelerometer's gravity tilt).
+                entry.UsesPose = true;
+                entry.Status = "";
+                // Pose-based controllers start switched off: on the Frame (2026-11-22, TEST 1) resting
+                // controllers only added noise (headset alone shown 96 % of the time, with controllers 85 %).
+                if (entry.Role == DeviceRole.Hand && !_settings.Devices.UseDevice.ContainsKey(entry.Info.Serial))
+                    entry.UsedForHeartRate = false;
+                Engine.AddDevice(entry.Id, entry.Role, useForHeartRate: entry.UsedForHeartRate, useForBreathing: false);
+                posesChanged = true;
+            }
         }
+        if (posesChanged) RestartPosePoller();
         _reader = new ImuReader(_byStream.Keys.ToList(), OnImu) { Tick = OnTick };
         _reader.Start();
+    }
+
+    private void RestartPosePoller()
+    {
+        _posePoller?.Stop();
+        List<DeviceEntry> poseDevices;
+        lock (_devicesGate) poseDevices = _devices.Values.Where(d => d.UsesPose).ToList();
+        _poseByIndex = poseDevices.ToDictionary(d => d.Info.Index);
+        if (poseDevices.Count == 0) { _posePoller = null; return; }
+        var byIndex = _poseByIndex;
+        _posePoller = new PosePoller(_vr.System, byIndex.Keys, PosePollHz, (in PoseSample p) =>
+        {
+            // Velocities only change when the driver delivers a new update; repeats are extrapolation.
+            if (!p.VelocityChanged || !p.Valid || !byIndex.TryGetValue(p.Device, out var entry)) return;
+            var w = p.AngularVelocity;
+            _poseQueue.Enqueue((entry, p.HostTime, new Vec3(w.v0, w.v1, w.v2)));
+            RawPose?.Invoke(entry, p);
+        });
+        _posePoller.Start();
     }
 
     private bool OpenStream(DeviceEntry entry)
@@ -208,6 +254,15 @@ public sealed class LiveSession : IDisposable
 
     private void OnTick()
     {
+        // Pose-fallback samples are queued by the pose thread; the engine is only touched here.
+        while (_poseQueue.TryDequeue(out var p))
+        {
+            p.entry.Samples++;
+            p.entry.LastHostTime = p.t;
+            Engine.Push(p.entry.Id, new ImuSample(p.t, default, p.gyro));
+            _latest = Math.Max(_latest, p.t);
+        }
+
         double now = Math.Max(_latest, HostClock.Now - 0.02);
         if (Engine.TryUpdate(now, out var snap))
         {
@@ -223,6 +278,7 @@ public sealed class LiveSession : IDisposable
 
     public void Dispose()
     {
+        _posePoller?.Stop();
         _reader?.Stop();
         foreach (var s in _byStream.Keys) s.Dispose();
     }
