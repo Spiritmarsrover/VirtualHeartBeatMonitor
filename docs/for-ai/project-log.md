@@ -424,3 +424,18 @@ Recordings: `recordings/20261122_183622_eyes_test1-still` + `recordings/*_frame-
 - Live (dev build, `--no-osc --diagnostics`, Frame worn, seated): after settling, shown
   continuously 59–63 BPM, HMD prominence 27–173; capture shown 68 % incl. the start movement.
   A resting Frame controller also tracked 55–62 BPM (prominence 8–15), worth revisiting.
+
+### 2026-11-22: TEST 3 (Frame, controllers held in the lap, 4 min, pulse 62 before) and "set down"
+
+- Recording `recordings/20261122_191254_frame-test3-hands` (Probe, poses only). HMD and both held
+  controllers agree within ~0.5 BPM throughout (medians 62.9 / 62.9 / 62.4, prominence 34–80);
+  fused shown 94 %, gaps only at two movements. No doubling in this or any Frame recording
+  (only a 4 s stretch at ~100 BPM in the spoiled first take).
+- Owner reports the HMD sometimes shows ~2x live. Hypothesis: two jolts per beat (valve closures
+  S1/S2, ~0.3 s apart) coupling well into head/strap, possibly posture dependent (strap against a
+  chair). Not reproduced yet; no fusion change without a recording. Ask for a diagnostics report
+  while it happens.
+- Controller 1 s RMS rotation: resting on a surface 0.14–0.16 deg/s (flat), held still >= 0.36 (p5).
+  Added engine "set down" check for pose-based hand devices (`restBelowDps`, 0.25 deg/s for 3 s):
+  such a device sits out and shows "set down". Pose controllers are on by default again.
+  Replays: Beyond recordings unchanged; Frame TEST 1 all devices 85 -> 96 %, TEST 3 94 %.

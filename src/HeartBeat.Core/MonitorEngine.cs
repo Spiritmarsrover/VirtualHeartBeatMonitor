@@ -40,11 +40,19 @@ public sealed class EngineSettings
 
     /// <summary>How long the beat path waits for slower devices before combining without them.</summary>
     public double BeatAlignWaitSeconds { get; init; } = 0.15;
+
+    /// <summary>
+    /// "Set down" threshold for pose-based hand devices (deg/s, ~1 s RMS of rotation). Steam Frame
+    /// controllers, 2026-11-22: resting on a surface 0.14–0.16, held still in the lap ≥ 0.36 (p5).
+    /// </summary>
+    public double PoseHandRestDps { get; init; } = 0.25;
+    /// <summary>How long a device must stay below its rest threshold before it sits out.</summary>
+    public double RestSeconds { get; init; } = 3.0;
 }
 
 public sealed record DeviceReport(
     string Id, DeviceRole Role, bool UsedForHeartRate, double PeakBpm, double Prominence, bool Still, double MotionDps,
-    bool Receiving = true, bool MovingNow = false, double WindowSeconds = 0);
+    bool Receiving = true, bool MovingNow = false, double WindowSeconds = 0, bool Resting = false);
 
 public sealed record MonitorSnapshot(
     double Time, HeartRateEstimate Heart, BreathingState? Breathing, IReadOnlyList<DeviceReport> Devices,
@@ -86,6 +94,11 @@ public sealed class MonitorEngine
         public double BeatWeight;      // refreshed each update: 0 = not used for beats right now
         public bool Receiving;
         public bool MovingNow => Motion.Moving;
+        // "Set down" detection (pose devices only): rotation stays at the tracking noise floor.
+        public double RestBelowDps = double.NaN;
+        public double RestPower = double.NaN;     // ~1 s EMA of |gyro|² in (deg/s)²
+        public double RestingSince = double.NaN;
+        public bool Resting;
     }
 
     private readonly EngineSettings _settings;
@@ -122,13 +135,19 @@ public sealed class MonitorEngine
 
     /// <param name="useForHeartRate">Whether this device feeds the heart rate and beat events.</param>
     /// <param name="useForBreathing">Whether breathing is estimated from this device (chest devices).</param>
-    public void AddDevice(string id, DeviceRole role, bool? useForHeartRate = null, bool? useForBreathing = null)
+    /// <param name="restBelowDps">
+    /// When set, the device sits out while its rotation (≈1 s RMS) stays below this for
+    /// <see cref="EngineSettings.RestSeconds"/>: it has been put down and carries no heartbeat.
+    /// </param>
+    public void AddDevice(string id, DeviceRole role, bool? useForHeartRate = null, bool? useForBreathing = null,
+        double restBelowDps = double.NaN)
     {
         var s = _settings;
         var device = new Device
         {
             Id = id,
             Role = role,
+            RestBelowDps = restBelowDps,
             UseForHeartRate = useForHeartRate ?? true,
             Resampler = new UniformResampler(s.ProcessingRate),
             Envelope = new VibrationEnvelope(s.ProcessingRate, s.EnvelopeRate),
@@ -162,6 +181,7 @@ public sealed class MonitorEngine
         d.Resampler.Push(sample, (double t, in Vec3 accel, in Vec3 gyro) =>
         {
             d.Motion.Push(gyro);
+            if (!double.IsNaN(d.RestBelowDps)) UpdateRest(d, t, gyro);
             // Moving moments are marked so the spectrum can cut them out instead of discarding the window.
             if (d.Envelope.Push(gyro, out double env)) d.Spectrum.Push(env, d.Motion.Moving);
             // Always computed, so a device switched on later contributes beats right away.
@@ -177,6 +197,24 @@ public sealed class MonitorEngine
             d.Breathing?.Push(t, accel);
         });
         ProcessBeatFrames();
+    }
+
+    private void UpdateRest(Device d, double t, in Vec3 gyro)
+    {
+        const double RadToDeg = 180.0 / Math.PI;
+        double w2 = (gyro.X * gyro.X + gyro.Y * gyro.Y + gyro.Z * gyro.Z) * RadToDeg * RadToDeg;
+        double alpha = 1.0 / _settings.ProcessingRate; // ~1 s time constant
+        d.RestPower = double.IsNaN(d.RestPower) ? w2 : d.RestPower + alpha * (w2 - d.RestPower);
+        if (Math.Sqrt(d.RestPower) < d.RestBelowDps)
+        {
+            if (double.IsNaN(d.RestingSince)) d.RestingSince = t;
+            d.Resting = t - d.RestingSince >= _settings.RestSeconds;
+        }
+        else
+        {
+            d.RestingSince = double.NaN;
+            d.Resting = false;
+        }
     }
 
     /// <summary>
@@ -224,7 +262,7 @@ public sealed class MonitorEngine
         // shown and no beats are sent.
         var hrDevices = _devices.Where(d => d.UseForHeartRate).ToList();
         foreach (var d in _devices) d.Receiving = now - d.LastSampleTime <= _settings.StaleSeconds;
-        var live = hrDevices.Where(d => d.Receiving).ToList();
+        var live = hrDevices.Where(d => d.Receiving && !d.Resting).ToList();
         _userMoving = live.Count > 0 && live.All(d => d.MovingNow);
 
         var reports = new List<DeviceReport>();
@@ -237,13 +275,13 @@ public sealed class MonitorEngine
             if (!d.Receiving) d.Spectrum.Clear();
             d.Last = d.Receiving ? d.Spectrum.Compute() : null;
             bool still = d.Receiving && !d.MovingNow;
-            bool usable = d.Last != null && still && d.UseForHeartRate && !_userMoving && UserPresent;
+            bool usable = d.Last != null && still && !d.Resting && d.UseForHeartRate && !_userMoving && UserPresent;
             double factor = _settings.WeightFor(d.Role);
             if (usable) { forFusion.Add(d.Last!); factors.Add(factor); }
             d.BeatWeight = usable ? HeartRateFusion.DeviceWeight(d.Last!) * factor : 0;
             reports.Add(new DeviceReport(d.Id, d.Role, d.UseForHeartRate,
                 d.Last?.PeakBpm ?? double.NaN, d.Last?.Prominence ?? 0, still, d.Motion.FastDps, d.Receiving, d.MovingNow,
-                d.Spectrum.LastWindowSeconds));
+                d.Spectrum.LastWindowSeconds, d.Resting));
         }
 
         _heart = Fusion.Update(now, forFusion, factors);

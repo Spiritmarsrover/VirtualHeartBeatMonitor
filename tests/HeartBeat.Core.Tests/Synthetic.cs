@@ -78,7 +78,7 @@ internal static class Synthetic
         return beats;
     }
 
-    private static double Gaussian(Random rng)
+    internal static double Gaussian(Random rng)
     {
         double u1 = 1.0 - rng.NextDouble(), u2 = rng.NextDouble();
         return Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2);

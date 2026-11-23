@@ -84,6 +84,7 @@ public sealed class ConsoleView
             string state = d.Status.Length > 0 ? d.Status
                 : r == null ? "starting"
                 : !r.Receiving ? "no data"
+                : r.Resting ? "set down"
                 : r.MovingNow ? "moving"
                 : r.Prominence > 0 ? "measuring" : "settling";
             string window = r is { WindowSeconds: > 0 } ? $"{r.WindowSeconds:0} s" : "";

@@ -39,6 +39,29 @@ public class PoseTests
     }
 
     [Fact]
+    public void Controller_put_down_sits_out_and_held_one_does_not()
+    {
+        var engine = new MonitorEngine();
+        double rest = engine.Settings.PoseHandRestDps;
+        engine.AddDevice("down", DeviceRole.Hand, useForBreathing: false, restBelowDps: rest);
+        engine.AddDevice("held", DeviceRole.Hand, useForBreathing: false, restBelowDps: rest);
+        var rng = new Random(3);
+        const double D2R = Math.PI / 180;
+        MonitorSnapshot? last = null;
+        for (int i = 0; i < 20 * 290; i++)
+        {
+            double t = i / 290.0;
+            // Resting: tracking noise ~0.15 deg/s RMS. Held: ~0.45 deg/s of hand tremor and sway.
+            Vec3 Noise(double dps) => new(dps * D2R * Synthetic.Gaussian(rng) / Math.Sqrt(3), dps * D2R * Synthetic.Gaussian(rng) / Math.Sqrt(3), dps * D2R * Synthetic.Gaussian(rng) / Math.Sqrt(3));
+            engine.Push("down", new ImuSample(t, default, Noise(0.15)));
+            engine.Push("held", new ImuSample(t, default, Noise(0.45)));
+            if (engine.TryUpdate(t, out var snap)) last = snap;
+        }
+        Assert.True(last!.Devices.Single(d => d.Id == "down").Resting);
+        Assert.False(last.Devices.Single(d => d.Id == "held").Resting);
+    }
+
+    [Fact]
     public void Recording_without_imu_loads_poses_as_gyro()
     {
         string dir = Path.Combine(Path.GetTempPath(), "hb-pose-" + Guid.NewGuid().ToString("N"));

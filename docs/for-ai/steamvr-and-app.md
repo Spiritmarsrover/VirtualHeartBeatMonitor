@@ -30,8 +30,9 @@ manifest) the app exits when SteamVR quits.
   (`OnTick`), so the engine stays single-threaded. Breathing is off for pose devices.
 - Steam Frame (SteamVR 2.19.4, tracking system `cv`): HMD ~287 updates/s, controllers
   ~195–208/s. Head pose works well while still (see project-log 2026-11-22).
-- Pose-based controllers start switched off (resting controllers only added noise in TEST 1);
-  the user can switch them on. Raw-IMU controllers keep the old default.
+- Pose-based controllers are used, but sit out while "set down": rotation (~1 s RMS) below
+  `PoseHandRestDps` 0.25 deg/s for 3 s (Frame: resting 0.14–0.16, held in lap >= 0.36). Raw-IMU
+  devices have no rest check.
 - Diagnostics poll poses at 1 kHz too and report `signal from raw IMU / pose` per device.
 
 ## Overlays

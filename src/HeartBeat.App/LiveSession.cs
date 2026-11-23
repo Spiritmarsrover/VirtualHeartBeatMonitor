@@ -150,11 +150,10 @@ public sealed class LiveSession : IDisposable
                 // Pose fallback: rotation only (breathing needs the accelerometer's gravity tilt).
                 entry.UsesPose = true;
                 entry.Status = "";
-                // Pose-based controllers start switched off: on the Frame (2026-11-22, TEST 1) resting
-                // controllers only added noise (headset alone shown 96 % of the time, with controllers 85 %).
-                if (entry.Role == DeviceRole.Hand && !_settings.Devices.UseDevice.ContainsKey(entry.Info.Serial))
-                    entry.UsedForHeartRate = false;
-                Engine.AddDevice(entry.Id, entry.Role, useForHeartRate: entry.UsedForHeartRate, useForBreathing: false);
+                // Held controllers carry the heartbeat well (Frame TEST 3), resting ones only add noise
+                // (TEST 1), so pose-based hand devices sit out while they lie still ("set down").
+                Engine.AddDevice(entry.Id, entry.Role, useForHeartRate: entry.UsedForHeartRate, useForBreathing: false,
+                    restBelowDps: entry.Role == DeviceRole.Hand ? Engine.Settings.PoseHandRestDps : double.NaN);
                 posesChanged = true;
             }
         }

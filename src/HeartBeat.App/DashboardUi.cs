@@ -165,7 +165,7 @@ public sealed class DashboardUi : IDisposable
                 var r = snap?.Devices.FirstOrDefault(x => x.Id == d.Id);
                 string state = !d.UsedForHeartRate ? "not used"
                     : d.Status.Length > 0 ? d.Status
-                    : r == null ? "starting" : !r.Receiving ? "no data" : r.MovingNow ? "moving" : r.Prominence > 0 ? $"{r.PeakBpm:0} BPM" : "settling";
+                    : r == null ? "starting" : !r.Receiving ? "no data" : r.Resting ? "set down" : r.MovingNow ? "moving" : r.Prominence > 0 ? $"{r.PeakBpm:0} BPM" : "settling";
                 var row = new RectangleF(46, y - 4, 406, 32);
                 DrawSwitch(g, new RectangleF(row.Right - 50, y, 44, 22), d.UsedForHeartRate);
                 using (var b = new SolidBrush(d.UsedForHeartRate ? Ink : Muted)) g.DrawString(d.Info.Kind, _small, b, 52, y);

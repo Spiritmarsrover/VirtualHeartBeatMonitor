@@ -60,7 +60,8 @@ const string ReferenceKind = "Tracker";
 foreach (var d in recording.Devices)
 {
     bool useHr = hrDevices?.Contains(d.Kind) ?? d.Kind != ReferenceKind;
-    engine.AddDevice(d.Kind, d.DefaultRole, useForHeartRate: useHr, useForBreathing: d.FromPose ? false : null);
+    engine.AddDevice(d.Kind, d.DefaultRole, useForHeartRate: useHr, useForBreathing: d.FromPose ? false : null,
+        restBelowDps: d.FromPose && d.DefaultRole == DeviceRole.Hand ? engine.Settings.PoseHandRestDps : double.NaN);
 }
 
 // Merge all devices' samples in time order, as they would arrive live.

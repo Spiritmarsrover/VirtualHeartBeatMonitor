@@ -374,6 +374,7 @@ public sealed class MainForm : Form
                 : d.Status.Length > 0 ? d.Status
                 : r == null ? "starting"
                 : !r.Receiving ? "no data"
+                : r.Resting ? "set down"
                 : r.MovingNow ? "moving"
                 : r.Prominence > 0 ? "measuring" : "settling";
             string peak = r is { Prominence: > 0 } ? $"{r.PeakBpm:0} BPM (x{r.Prominence:0})" : "";
