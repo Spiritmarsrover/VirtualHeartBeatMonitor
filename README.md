@@ -20,7 +20,10 @@ Do not use for medicine or heath.
 - Measures your heart rate while you sit or stand still (shows "--" while you move or talk).
 - Sends the BPM and every heartbeat to VRChat avatar parameters (`HR`, `isHRBeat`, …).
 - Shows it on your wrist and in a "Heart rate" tab in the SteamVR dashboard.
+- Optional: a small heart HUD in your view, its colour shows what the measurement is doing
+  (red: measuring, orange: unsure, grey: stay still, blue: moving, dark: no data).
 - Optional: vibrates your controllers on each beat, measures breathing with a chest tracker.
+- Runs on Windows (PC VR) and natively on the Steam Frame (standalone).
 
 ## How Does it Work?
 
@@ -40,20 +43,44 @@ Please do not use results for any medical use.
 1. Bigscreen Beyond 1
 2. Valve Index Controllers
 3. VIVE Tracker
+4. Steam Frame and its controllers (PC VR and standalone)
+
+Tip: holding the controllers loosely in your lap gives a much steadier reading than the headset alone.
 
 ## Install
 
-1. Download the latest zip from Releases and unzip it anywhere.
+### PC (Windows)
+
+1. Download the latest `win-x64.zip` from Releases and unzip it anywhere.
 2. Start SteamVR, then run `HeartBeatMonitor.exe`.
 3. In VRChat, turn on OSC.
 4. Sit still for about 10 seconds.
 
+### Steam Frame (standalone)
+
+For PC VR with the Frame, use the PC version above.
+
+1. On the Frame (Desktop Mode), download the latest `steamframe-arm64.tar.gz` from Releases.
+2. In Konsole:
+   ```
+   cd ~
+   tar -xzf ~/Downloads/VirtualHeartBeatMonitor-*-steamframe-arm64.tar.gz
+   chmod +x ~/VirtualHeartBeatMonitor/HeartBeatMonitor
+   ~/VirtualHeartBeatMonitor/HeartBeatMonitor
+   ```
+3. Open the "Heart rate" tab in the SteamVR dashboard and turn on **Start with SteamVR**, so it
+   starts by itself from then on.
+4. In VRChat, turn on OSC, and sit still for about 10 seconds.
+
 ## Diagnostics report
 
 Click **Create diagnostics report** (window, tray menu, or the SteamVR dashboard tab) and sit
-still for one minute. A zip appears on your Desktop: send it to me. It contains your device
-list, one minute of motion data and the app's logs. Serial numbers are masked.
+still for one minute. A zip appears on your Desktop (on the Steam Frame: `~/Desktop`): send it
+to me. It contains your device list, one minute of motion data and the app's logs. Serial numbers
+are masked.
 
 ## License
 
 MIT, see [LICENSE](LICENSE). Uses the OpenVR SDK (BSD-3-Clause, Valve Corporation), included in `lib/openvr`.
+The Steam Frame version includes glyphs from Noto Sans (SIL Open Font License, see
+`src/HeartBeat.Native/Assets/NotoSans-OFL.txt`).
