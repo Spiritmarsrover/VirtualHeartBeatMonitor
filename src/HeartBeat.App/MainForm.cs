@@ -25,7 +25,7 @@ public sealed class MainForm : Form
     private readonly Label _status = new() { AutoSize = true, Font = new Font("Segoe UI", 11f) };
     private readonly Label _beats = new() { AutoSize = true, ForeColor = Grey };
     private readonly Label _breathing = new() { AutoSize = true, ForeColor = Grey };
-    private readonly GraphPanel _graph = new() { Height = 120, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 6, 0, 0) };
+    private readonly GraphPanel _graph = new() { Height = 240, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 6, 0, 0) };
     private readonly Font _graphFont = new("Segoe UI", 8.5f);
     private int _graphPoints = -1;
     private const double GraphSeconds = 120;
@@ -44,6 +44,7 @@ public sealed class MainForm : Form
     private readonly TrackBar _panelSize = Track(5, 15);       // cm
     private readonly CheckBox _movePanel = new() { Text = "Move it: grab with your other hand", AutoSize = true };
     private readonly Button _panelReset = new() { Text = "Reset position", AutoSize = true };
+    private readonly CheckBox _hud = new() { Text = "Heart HUD in view (colour = status)", AutoSize = true };
 
     private readonly CheckBox _showWindow = new() { Text = "Show this window (otherwise tray icon)", AutoSize = true };
     private readonly CheckBox _autoStart = new() { Text = "Start with SteamVR", AutoSize = true };
@@ -63,7 +64,7 @@ public sealed class MainForm : Form
         Text = "VirtualHeartBeatMonitor";
         Font = new Font("Segoe UI", 9.5f);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(640, 940);
+        ClientSize = new Size(640, 1000);
         MinimumSize = new Size(560, 640);
         Padding = new Padding(14);
         _allowShow = host.Settings.General.ShowDesktopWindow;
@@ -141,7 +142,8 @@ public sealed class MainForm : Form
             Group("VRChat", _osc, Row(Label("Port", 20), _port), _chatbox),
             Group("Beats", _predicted, _haptics, Row(Label("Strength"), _hapticStrength), Row(Label("Hands"), _hapticHands)));
         var right = Column(
-            Group("Wrist panel in VR",
+            Group("In VR",
+                _hud,
                 Row(Label("Wrist"), _hand),
                 Row(Label("Size"), _panelSize),
                 _movePanel,
@@ -174,6 +176,7 @@ public sealed class MainForm : Form
         };
         _panelReset.Click += (_, _) => { Apply(() => _host.Settings.Overlay.ResetPosition()); LoadSettings(); };
         _showWindow.CheckedChanged += (_, _) => Apply(() => _host.Settings.General.ShowDesktopWindow = _showWindow.Checked);
+        _hud.CheckedChanged += (_, _) => Apply(() => _host.Settings.Hud.Enabled = _hud.Checked);
         _devices.ItemChecked += (_, e) =>
         {
             if (_loading || e.Item.Tag is not LiveSession.DeviceEntry entry || entry.UsedForHeartRate == e.Item.Checked) return;
@@ -287,6 +290,7 @@ public sealed class MainForm : Form
         SetTrack(_panelSize, s.Overlay.WidthMeters * 100);
         _movePanel.Checked = _host.MovingWristPanel;
         _showWindow.Checked = s.General.ShowDesktopWindow;
+        _hud.Checked = s.Hud.Enabled;
         _loading = false;
     }
 

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Native Steam Frame app (SteamOS, linux-arm64): runs on the headset next to SteamVR, for
+       standalone use. Same host as the Windows app, without the desktop window.
+       Package: dotnet publish src/HeartBeat.Native -c Release -r linux-arm64 (see tools/publish-frame.ps1). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>HeartBeat.Native</RootNamespace>
+    <AssemblyName>HeartBeatMonitor</AssemblyName>
+    <Product>VirtualHeartBeatMonitor</Product>
+    <Version>0.3.0</Version>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HeartBeat.Host\HeartBeat.Host.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Panel font: Noto Sans glyphs rendered by tools/FontAtlas (SIL OFL 1.1, see the license file). -->
+    <EmbeddedResource Include="Assets\ui-font.bin" LogicalName="ui-font.bin" />
+    <None Include="Assets\NotoSans-OFL.txt" Link="NotoSans-OFL.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

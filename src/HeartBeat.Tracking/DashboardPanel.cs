@@ -34,19 +34,40 @@ public sealed class DashboardPanel : IDisposable
         overlay.SetOverlayWidthInMeters(_main, widthMeters);
         overlay.SetOverlayInputMethod(_main, VROverlayInputMethod.Mouse);
         var scale = new HmdVector2_t { v0 = width, v1 = height };
-        overlay.SetOverlayMouseScale(_main, ref scale);
+        var setErr = overlay.SetOverlayMouseScale(_main, ref scale);
+        var back = new HmdVector2_t();
+        var getErr = overlay.GetOverlayMouseScale(_main, ref back);
+        var method = VROverlayInputMethod.None;
+        overlay.GetOverlayInputMethod(_main, ref method);
+        InputInfo = $"mouse scale set {width}x{height} ({setErr}), reads back {back.v0}x{back.v1} ({getErr}), input method {method}";
+
+        // The native PollNextOverlayEvent, called directly on Linux/macOS (see PollMouse).
+        if (!OperatingSystem.IsWindows())
+        {
+            var table = (IVROverlay)typeof(CVROverlay).GetField("FnTable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(overlay)!;
+            _pollPacked = Marshal.GetFunctionPointerForDelegate(table.PollNextOverlayEvent);
+        }
     }
+
+    private const int PackedEventSize = 60;
+    private readonly IntPtr _pollPacked;
+
+    /// <summary>What SteamVR reports for this tab's input setup (diagnostics).</summary>
+    public string InputInfo { get; }
 
     /// <summary>True while the user has this tab open in the dashboard.</summary>
     public bool Visible => _overlay.IsOverlayVisible(_main);
 
+    /// <summary>Optional: receives a line per overlay event (diagnostics).</summary>
+    public Action<string>? Trace { get; set; }
+
     public List<PanelMouseEvent> PollMouse()
     {
         var events = new List<PanelMouseEvent>();
-        var ev = new VREvent_t();
-        while (_overlay.PollNextOverlayEvent(_main, ref ev, EventSize))
+        void Add(uint type, float x, float y, uint button)
         {
-            var kind = (EVREventType)ev.eventType switch
+            Trace?.Invoke($"{(EVREventType)type} x {x:0} y {y:0} button {button}");
+            var kind = (EVREventType)type switch
             {
                 EVREventType.VREvent_MouseMove => PanelMouse.Move,
                 EVREventType.VREvent_MouseButtonDown => PanelMouse.Down,
@@ -54,8 +75,27 @@ public sealed class DashboardPanel : IDisposable
                 _ => (PanelMouse?)null,
             };
             // OpenVR mouse coordinates start at the bottom-left; flip to top-left.
-            if (kind is { } k) events.Add(new PanelMouseEvent(k, ev.data.mouse.x, Height - ev.data.mouse.y));
+            if (kind is { } k) events.Add(new PanelMouseEvent(k, x, Height - y));
         }
+
+        if (_pollPacked != IntPtr.Zero)
+        {
+            // Linux: VREvent_t is packed to 4 bytes (60 bytes, data at offset 12). The binding's own
+            // Linux path re-marshals it through the 8-byte-aligned struct, which drops mouse x
+            // (bytes 12..15 become padding): every click came out at x = 0. Read the bytes directly.
+            unsafe
+            {
+                byte* buf = stackalloc byte[PackedEventSize];
+                var poll = (delegate* unmanaged<ulong, byte*, uint, byte>)_pollPacked;
+                while (poll(_main, buf, PackedEventSize) != 0)
+                    Add(*(uint*)buf, *(float*)(buf + 12), *(float*)(buf + 16), *(uint*)(buf + 20));
+            }
+            return events;
+        }
+
+        var ev = new VREvent_t();
+        while (_overlay.PollNextOverlayEvent(_main, ref ev, EventSize))
+            Add(ev.eventType, ev.data.mouse.x, ev.data.mouse.y, ev.data.mouse.button);
         return events;
     }
 
@@ -87,9 +127,12 @@ public sealed class DashboardPanel : IDisposable
     }
 
     /// <summary>Shows a Direct3D 11 texture (BGRA). Returns the SteamVR result.</summary>
-    public EVROverlayError SetTexture(IntPtr d3d11Texture)
+    public EVROverlayError SetTexture(IntPtr d3d11Texture) =>
+        SetTexture(new Texture_t { handle = d3d11Texture, eType = ETextureType.DirectX, eColorSpace = EColorSpace.Auto });
+
+    /// <summary>Any texture type (Vulkan on the Steam Frame).</summary>
+    public EVROverlayError SetTexture(Texture_t t)
     {
-        var t = new Texture_t { handle = d3d11Texture, eType = ETextureType.DirectX, eColorSpace = EColorSpace.Auto };
         var err = _overlay.SetOverlayTexture(_main, ref t);
         if (err != EVROverlayError.None) LastError = $"SetOverlayTexture: {err}";
         return err;

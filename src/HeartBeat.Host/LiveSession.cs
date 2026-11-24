@@ -275,6 +275,20 @@ public sealed class LiveSession : IDisposable
         }
     }
 
+    /// <summary>One short line for the panels and the console: what the measurement is doing right now.</summary>
+    public string StatusText()
+    {
+        if (Notice is { } notice) return notice;
+        var snap = LatestSnapshot;
+        if (snap == null || HostClock.Now - StartedAt < 8) return "warming up, stay still";
+        if (snap.Devices.Count > 0 && snap.Devices.All(d => !d.Receiving)) return "no data from devices";
+        if (snap.UserMoving) return "moving, paused";
+        if (!snap.Heart.Displayed) return "measuring, stay still";
+        if (snap.Breathing is { Valid: true } b)
+            return b.IsHold ? $"breath hold {b.HoldSeconds:0} s" : $"breathing {(double.IsNaN(b.RatePerMinute) ? "--" : b.RatePerMinute.ToString("0"))}/min";
+        return $"{snap.Heart.DevicesUsed} device{(snap.Heart.DevicesUsed == 1 ? "" : "s")}";
+    }
+
     public void Dispose()
     {
         _posePoller?.Stop();

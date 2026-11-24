@@ -94,7 +94,7 @@ internal static class Program
             return 0;
         }
 
-        using var host = new MonitorHost(settings, settingsPath, bySteamVr, noOsc);
+        using var host = new MonitorHost(settings, settingsPath, bySteamVr, noOsc, WindowsPanels.Factory);
         host.Start();
         if (diagnostics) host.RequestDiagnostics(waitForSteamVr: true);
         if (console) host.DiagnosticsSaved += path => Console.WriteLine($"Diagnostics report saved: {path}");

@@ -79,6 +79,15 @@ public sealed class BeatSettings
     public bool SendPredicted { get; set; } = true;
 }
 
+public sealed class HudSettings
+{
+    /// <summary>
+    /// A small heart with the BPM in the lower left of the view, coloured by what the measurement is
+    /// doing. Drifts slowly and pulses so it does not burn into OLED headset screens.
+    /// </summary>
+    public bool Enabled { get; set; } = false;
+}
+
 public sealed class GeneralSettings
 {
     /// <summary>Show the desktop window. When off, the app runs from the SteamVR dashboard and the tray icon.</summary>
@@ -95,6 +104,7 @@ public sealed class AppSettings
     public OverlaySettings Overlay { get; set; } = new();
     public HapticsSettings Haptics { get; set; } = new();
     public BeatSettings Beats { get; set; } = new();
+    public HudSettings Hud { get; set; } = new();
     public GeneralSettings General { get; set; } = new();
 
     private static readonly JsonSerializerOptions Json = new()

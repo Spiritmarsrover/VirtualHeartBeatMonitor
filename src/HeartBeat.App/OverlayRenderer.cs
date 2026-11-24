@@ -81,7 +81,7 @@ public sealed class OverlayRenderer : IDisposable
             }
 
             BpmGraph.Draw(g, new RectangleF(14, 134, Width - 34, 70), session.GetHistory(GraphSeconds), HostClock.Now, GraphSeconds,
-                new BpmGraph.Style(Heart, Color.FromArgb(60, Heart), Color.FromArgb(70, Muted), Muted, _graphFont));
+                new BpmGraph.Style(Heart, Color.FromArgb(60, Heart), Color.FromArgb(70, Muted), Muted, _graphFont), fine: false);
         }
 
         return _bitmap;
@@ -90,18 +90,7 @@ public sealed class OverlayRenderer : IDisposable
     /// <summary>Saves the last rendered frame as PNG (development aid).</summary>
     public void SavePng(string path) => _bitmap.Save(path, ImageFormat.Png);
 
-    public static string StatusText(LiveSession session)
-    {
-        if (session.Notice is { } notice) return notice;
-        var snap = session.LatestSnapshot;
-        if (snap == null || HostClock.Now - session.StartedAt < 8) return "warming up, stay still";
-        if (snap.Devices.Count > 0 && snap.Devices.All(d => !d.Receiving)) return "no data from devices";
-        if (snap.UserMoving) return "moving, paused";
-        if (!snap.Heart.Displayed) return "measuring, stay still";
-        if (snap.Breathing is { Valid: true } b)
-            return b.IsHold ? $"breath hold {b.HoldSeconds:0} s" : $"breathing {(double.IsNaN(b.RatePerMinute) ? "--" : b.RatePerMinute.ToString("0"))}/min";
-        return $"{snap.Heart.DevicesUsed} device{(snap.Heart.DevicesUsed == 1 ? "" : "s")}";
-    }
+    public static string StatusText(LiveSession session) => session.StatusText();
 
     private void DrawHeart(Graphics g, PointF center, float size, Color color)
     {

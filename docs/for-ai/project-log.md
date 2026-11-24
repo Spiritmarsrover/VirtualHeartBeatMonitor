@@ -439,3 +439,107 @@ Recordings: `recordings/20261122_183622_eyes_test1-still` + `recordings/*_frame-
   Added engine "set down" check for pose-based hand devices (`restBelowDps`, 0.25 deg/s for 3 s):
   such a device sits out and shows "set down". Pose controllers are on by default again.
   Replays: Beyond recordings unchanged; Frame TEST 1 all devices 85 -> 96 %, TEST 3 94 %.
+
+### 2026-11-23: EyePpg analyzer v2 (skin ROI) and TEST 4
+
+- `EyePpg analyze` now uses the skin-region method (see tools/EyePpg/README.md); only runs of
+  empty 1/30 s slots >= 100 ms count as gaps (single empty slots are network jitter; treating
+  them as gaps had cut 50–60 %). `EyePpg record` also records poses for devices without raw IMU,
+  so each eye recording carries its own reference; `--poses` reads a separate Probe folder.
+- TEST 1 re-analysed: eye 1 pulse found (4.7x vs decoys 1.7x, within 5 BPM 51 %); eye 0 weak;
+  wrong-rate check (80 BPM) finds nothing; injected 0.15 % found in both eyes.
+- TEST 4 (`recordings/20261123_165303_eyes_test4-30fps`, 4 min, still 30 fps: the reinstall
+  without the cap did not happen): **no pulse in either eye** (1.5x vs decoys 1.5x, within 5 BPM
+  4–6 %). Skin-region noise higher (0.26 % vs 0.16 %) and smaller skin area (~390 vs 530–645
+  blocks): the eye was more open / the fit differed. Head-pose reference steady at 73–77 BPM
+  (prominence ~19); counted pulse after: 70. Controllers were not moving at all (0.0 deg/s):
+  set down, excluded.
+- Conclusion so far: the eye-camera pulse is real but fragile, ~0.1 % of skin brightness, and
+  depends on fit and how much steady skin the camera sees. Not usable as a heart-rate source
+  yet. Remaining levers: 60 fps, raw frames on the headset, exposure metadata, longer windows.
+
+### 2026-11-23: TEST 5 (eyes at 60 fps, q95, 4 min, pulse 76 before, 80 after)
+
+- `recordings/20261123_170420_eyes_test5-60fps`; head-pose reference median 75 BPM.
+- 60 fps did **not** lower the skin-region noise (0.38 % / 0.26 % vs 0.16–0.27 % at 30 fps): the
+  noise is not per-frame sensor noise but slower changes (lid/eye movement shading the skin,
+  headset shifting on the face) inside the pulse band, which more frames don't average away.
+- Eye 1 weak (2.4x vs decoys 1.4x, peak within 5 BPM 19 %); eye 0 nothing. Wrong rate: nothing.
+  Injected 0.15 % found (64–72 %), so the real pulse here is below ~0.1 %.
+- Over three sessions: clear in one eye once, weak once, absent once. Eye-camera PPG through the
+  community MJPEG stream is not a usable heart-rate source. Paused; possible later angles: raw
+  frames + exposure metadata on the headset, or using it only to confirm the motion-based rate.
+
+### 2026-11-23: headset helper `eyeblocks` (raw frames) and TEST 6
+
+- `tools/EyePpg/headset/eyeblocks.c`: FrameEyeCameraFeed's framestream (MIT, upstream 309c41d)
+  plus `GET /blocks`: exact 8x8 block sums of every raw frame (no JPEG), headset CLOCK_MONOTONIC
+  time and the 64 bytes before the frame. Built on the Frame with its own gcc; run as root
+  (`sudo systemd-run --unit=eyeblocks ~/eyeblocks/eyeblocks --port 8091`). `EyePpg record --blocks`.
+- The helper sees each frame on ~3 consecutive 3.5 ms polls while the camera writes it; grouping
+  records < 6 ms apart gives exactly 60.1 frames/s per eye, intervals 16.7 ± 0.3 ms (vs 22–45 ms
+  network jitter with MJPEG). The 64 bytes before the frame are dark padding, not the
+  exposure/gain header (not located yet).
+- TEST 6 (`recordings/*_eyes_test6-raw60`, 4 min, pulse 68 before): **no pulse** (eye 0 2.3x vs
+  decoys 1.8x, 22 %; eye 1 2.0x vs 1.9x). Skin-region band noise 0.47–0.50 %, higher than with
+  JPEG; injected 0.1 % only "weak". The session was restless (head moving 45 s, pose HR shown 37 %).
+- Conclusion: the noise floor is image change in the eye region (lids, eye and headset movement),
+  not compression or sensor noise, and sits 3–5x above the ~0.1 % pulse. Raw frames, 60 fps and
+  exact timing don't change that. Eye-camera PPG on the Frame is shelved.
+
+### 2026-11-23: native Steam Frame version (standalone), phase 1
+
+- Decision (owner): the native build is for standalone use; PC VR users use the PC app (pose
+  fallback works just as well there). No desktop window on the Frame.
+- SteamVR runs on the headset (`/opt/steamvr/bin/linuxarm64/vrserver`, XRService, compositor);
+  `libopenvr_api.so` for arm64 is in `~/.local/share/Steam/steamrtarm64/`. Probe cross-compiled
+  (`dotnet publish -r linux-arm64`, self-contained single file) runs there. No raw IMU natively
+  either; natively the HMD pose is recomputed on every request (velocity changes on every poll at
+  1 and 2 kHz), controllers ~208 updates/s.
+- TEST 7 (Probe native + PC at once, 2 min): identical results, median 69.0 BPM, shown 100 %,
+  HMD and held controllers within ~0.3 BPM. Native gives no accuracy gain; it is for standalone.
+- Refactor: portable host moved to `src/HeartBeat.Host` (`IPanels` for platform panels;
+  `WindowsPanels` in the Windows app, verified live after the move). `HeartBeat.Tracking` is
+  now AnyCPU (it was x64, which cannot load on arm64).
+- `src/HeartBeat.Native`: headless first version, ran on the Frame: connects to the native
+  SteamVR, pose fallback for HMD + both controllers, OSC to 127.0.0.1 received (HR, beats).
+- Next: panels with a built-in drawer (no System.Drawing on Linux) + raw upload, SteamVR
+  auto-start on the headset, install script (no sudo needed), check OSC with standalone VRChat.
+
+### 2026-11-23: native Frame panels (phase 2)
+
+- `DashboardModel` (Host) now holds the dashboard widgets, layout and laser-pointer input for both
+  platforms; Windows `DashboardUi` only draws it (verified identical by panel dump).
+- Frame drawing: `Canvas` (RGBA, SDF rounded boxes/circles, 4x sub-scanline polygons, max-coverage
+  polylines, atlas text, PNG writer) and `UiFont` (glyph atlas from Noto Sans 2.015, OFL, rendered
+  by tools/FontAtlas; one PrivateFontCollection per file, otherwise GDI+ drew Bold with Regular
+  outlines). `FramePanels` mirrors `WindowsPanels`; dashboard redraws at 15 fps while pulsing.
+- On the Frame: panels created, dumps (HEARTBEAT_DUMP_DIR) look like the Windows panels.
+  Not yet seen in the headset by the owner; laser input untested there.
+
+### 2026-11-23/24: Frame panels input fixed, graph grid, HUD
+
+- Flicker on the Frame: SetOverlayRaw; fixed with Vulkan textures (`VulkanTextures`).
+- Laser did nothing on the Frame tab. Long hunt: SteamVR registration (manifest key on the Frame is
+  `binary_path_linux_arm`), Down-click handling and a temporary rows-only layout were tried. Cause
+  found with a minimal C test program against `/opt/steamvr/bin/linuxarm64/libopenvr_api.so`, which
+  got proper x/y: the C# binding's Linux packed-event path drops mouse x (see steamvr-and-app.md).
+  Fixed by calling PollNextOverlayEvent directly; the Frame dashboard now matches the PC layout.
+  The native app loads SteamVR's own libopenvr_api.so (`/opt/steamvr/bin/linuxarm64/`), like
+  framecorder (github.com/coah80/framecorder, MIT, a native Frame dashboard app we compared with).
+- Dashboard/window graphs: a grid line every 20 BPM (`GraphScale`), labels as dense as the height
+  allows; the wrist panel keeps 0/half/top (owner's request).
+- HUD (opt-in, PC and Frame): heart with BPM in the view, colour = engine state, burn-in drift.
+  Rendered states checked offline; not yet seen in a headset.
+
+### 2026-11-24: graph range, doubling spike
+
+- Graph (dashboard, PC window): fixed 40–160 BPM, top stretches to 180 while a shown value is above
+  160; solid lines every 10, labels on 40/60/…, dashed on the 5s; gaps for "--" (on the 40 edge they
+  looked like 40 BPM); right edge = newest sample (following the clock made the line creep left on
+  every beat redraw); no end dot. Wrist graph unchanged (coarse 0/half/top, dropouts as 0).
+- Frame diagnostics `recordings/frame-diag-20261124-163138`: a 3 s harmonic (HMD peak 55 -> 109,
+  prominence 15) was shown as 110 because the 3-update release rule jumped to it. Release up by
+  ~2x now needs 15 updates; replay shows 55 throughout; all other recordings unchanged.
+- Same capture: "--" came from low prominence (HMD ~11, controllers resting and sitting out), not
+  the motion gate (0 % moving). Held controllers raise prominence to 34–99 (TEST 3).

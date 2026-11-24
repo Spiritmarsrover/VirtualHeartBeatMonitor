@@ -96,7 +96,7 @@ public static class DiagnosticsReport
         report.AppendLine("VirtualHeartBeatMonitor diagnostics report");
         report.AppendLine($"Created      {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         report.AppendLine($"App          {typeof(DiagnosticsReport).Assembly.GetName().Version}  ({Environment.ProcessPath})");
-        report.AppendLine($"Windows      {Environment.OSVersion.VersionString}, .NET {Environment.Version}");
+        report.AppendLine($"System       {Environment.OSVersion.VersionString}, {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}, .NET {Environment.Version}");
         report.AppendLine($"SteamVR      {(host.Connected ? host.RuntimeVersion : "not connected: " + host.Status)}");
         report.AppendLine($"Last error   {host.LastError ?? "-"}");
         report.AppendLine($"Vibration    {host.HapticsError ?? "ok"}");

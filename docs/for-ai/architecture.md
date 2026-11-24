@@ -5,11 +5,14 @@
 | Project | Target | Role |
 |---|---|---|
 | `src/HeartBeat.Core` | net10.0 | All signal processing. No OpenVR, no UI. Used live and by Replay. |
-| `src/HeartBeat.Tracking` | net10.0 | OpenVR access: connection, device list, raw IMU streams, pose polling, overlays (wrist, dashboard), SteamVR Input (haptics + grab), auto-start manifest, rigid-transform maths. Includes Valve's `lib/openvr/openvr_api.cs` binding. |
+| `src/HeartBeat.Tracking` | net10.0 (AnyCPU) | OpenVR access: connection, device list, raw IMU streams, pose polling, overlays (wrist, dashboard), SteamVR Input (haptics + grab), auto-start manifest, rigid-transform maths. Includes Valve's `lib/openvr/openvr_api.cs` binding. |
 | `src/HeartBeat.Osc` | net10.0 | OSC encoder and the VRChat parameter mapping (`VRChatOutput`). |
-| `src/HeartBeat.App` | net10.0-windows, WinForms | `HeartBeatMonitor.exe`: live session, host thread, window, tray, panels' drawing, Direct3D 11 texture upload, diagnostics reports, settings, logs. |
+| `src/HeartBeat.Host` | net10.0 | Platform-neutral app host (namespace `HeartBeat.App`): `MonitorHost` (SteamVR connection, OSC, vibration, settings/auto-start requests), `LiveSession`, settings, logs, diagnostics reports, wrist grab, console view. Panels are platform code behind `IPanels`. |
+| `src/HeartBeat.App` | net10.0-windows, WinForms | `HeartBeatMonitor.exe` (Windows): window, tray, `WindowsPanels` (System.Drawing + Direct3D 11 upload). |
+| `src/HeartBeat.Native` | net10.0, linux-arm64 | `HeartBeatMonitor` for the Steam Frame itself (standalone): same host, no desktop window, runs next to the headset's own SteamVR (`/opt/steamvr`). Needs `libopenvr_api.so` from `~/.local/share/Steam/steamrtarm64/` next to it. Panels: `FramePanels` drawn by a software `Canvas` with an embedded Noto Sans glyph atlas (`Assets/ui-font.bin`, OFL), uploaded with SetOverlayRaw. |
 | `tools/Probe` | console | Phase-0 tool: checks what data devices expose, records sessions to CSV. |
 | `tools/Replay` | console | Runs `HeartBeat.Core` over a recording and scores it. |
+| `tools/FontAtlas` | console (Windows) | Regenerates `src/HeartBeat.Native/Assets/ui-font.bin` from the Noto Sans TTFs (when panel font sizes change). |
 | `tests/HeartBeat.Core.Tests` | xunit | Synthetic-signal tests for DSP, engine, beats, OSC, rigid maths. |
 
 `lib/openvr/` holds the official OpenVR SDK v2.15.6 C# binding and `openvr_api.dll` (BSD-3).

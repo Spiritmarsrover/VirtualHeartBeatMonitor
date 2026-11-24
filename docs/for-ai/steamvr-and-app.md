@@ -53,6 +53,20 @@ manifest) the app exits when SteamVR quits.
   to PNG files. Raw uploads at high rates flickered in the headset, which is why textures are
   used.
 
+- **HUD** (`HudOverlay`, opt-in `hud.enabled`): 128 px heart with the BPM, fixed to the headset
+  view (`SetOverlayTransformTrackedDeviceRelative` to the HMD, lower left at 1 m, 6 cm wide).
+  Colour = state (`HudStatus`): red confident, orange shown but confidence < 0.8, grey
+  measuring, blue-grey moving, dark no data. Burn-in protection for OLED headsets: drifts
+  ±1.2 / ±1.0 cm on periods of 313 s / 197 s, 80 % opacity, pulses on each beat.
+- **Steam Frame panels** (`FramePanels`, HeartBeat.Native): drawn by `Canvas` (Noto Sans atlas),
+  uploaded as Vulkan textures (`VulkanTextures`, two images per panel in TRANSFER_SRC_OPTIMAL;
+  SetOverlayRaw flickered there too). Same dashboard layout as Windows (`DashboardModel`).
+- **Linux event bug** (`DashboardPanel.PollMouse`): the C# binding's Linux path for
+  PollNextOverlayEvent re-marshals the 4-byte-packed VREvent_t through the 8-byte-aligned
+  struct, which drops mouse x (always 0; y and button shift into place by accident). On
+  Linux the native function is called directly with a 60-byte buffer (x at 12, y 16, button 20).
+  Other packed-path calls in the binding are suspect on Linux for the same reason.
+
 ## SteamVR Input (`ControllerHaptics`)
 
 Writes `heartbeat_actions.json` and `heartbeat_bindings_<type>.json` next to the exe at start-up,
@@ -68,9 +82,10 @@ vive_cosmos_controller.
 
 ## Auto-start
 
-`SteamVrAutoStart` writes `heartbeatmonitor.vrmanifest` (app key `virtualheartbeatmonitor.app`,
-`is_dashboard_overlay`, arguments `--steamvr`) next to the exe, registers it, and sets auto-launch.
-It's opt-in from the UI.
+`SteamVrAutoStart.Register` writes `heartbeatmonitor.vrmanifest` (app key `virtualheartbeatmonitor.app`,
+`is_dashboard_overlay`, arguments `--steamvr`; `binary_path_windows`, or `binary_path_linux_arm` on the
+Frame) next to the exe and registers it on every start, plus `IdentifyApplication`. Auto-launch
+itself is opt-in from the UI.
 
 ## OSC to VRChat (`VRChatOutput`, default 127.0.0.1:9000)
 

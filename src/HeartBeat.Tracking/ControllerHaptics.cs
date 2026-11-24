@@ -44,6 +44,8 @@ public sealed class ControllerHaptics
         _system = vr.System;
         _input = Valve.VR.OpenVR.Input;
         if (_input == null) { Error = "SteamVR Input not available"; return; }
+        // Development switch: run without an action manifest (no vibration action, no grab).
+        if (Environment.GetEnvironmentVariable("HEARTBEAT_NO_INPUT") == "1") { Error = "SteamVR Input switched off (HEARTBEAT_NO_INPUT)"; return; }
         try
         {
             string manifest = WriteManifest(folder);

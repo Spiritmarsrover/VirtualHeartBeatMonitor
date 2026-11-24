@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Platform-neutral app host: SteamVR session, OSC, vibration, wrist grab, settings, diagnostics.
+       Used by the Windows app (HeartBeat.App) and the native Steam Frame app (HeartBeat.Native).
+       Panels (drawing + texture upload) are platform code behind IPanels. -->
+  <PropertyGroup>
+    <RootNamespace>HeartBeat.App</RootNamespace>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HeartBeat.Core\HeartBeat.Core.csproj" />
+    <ProjectReference Include="..\HeartBeat.Osc\HeartBeat.Osc.csproj" />
+    <ProjectReference Include="..\HeartBeat.Tracking\HeartBeat.Tracking.csproj" />
+  </ItemGroup>
+
+</Project>

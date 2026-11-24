@@ -31,7 +31,9 @@ in project-log.md).
    - EMA smoothing (α 0.35);
    - release: if the confident raw peak stays more than 12 BPM from the shown value for 3 updates
      in a row, the shown value jumps to it (prevents staying locked on a harmonic picked while
-     settling; no change on any recording, found with pose-like synthetic data).
+     settling; no change on any recording, found with pose-like synthetic data). Jumping up to
+     ~2x the shown value (ratio 1.8–2.2) needs 15 updates instead: a 3 s doubling on the Frame
+     (2026-11-24 diagnostics, 55 -> 109) had been shown as a spike.
 5. Display rule: show a number only if confidence ≥ 0.5 and the estimate is not held. Held means
    no usable spectrum this update (all devices moving, warming up, no clear peak). Otherwise "--".
 6. A device sits out of fusion while it is moving, not receiving (no samples for 1 s), or switched

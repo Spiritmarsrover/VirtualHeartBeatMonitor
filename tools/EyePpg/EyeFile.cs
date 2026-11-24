@@ -68,26 +68,42 @@ public sealed class EyeFile
 
         public void Write(double hostTime, int jpegBytes, in GreyFrame frame)
         {
-            if (!_headerWritten)
-            {
-                Cols = frame.Width / Block;
-                Rows = frame.Height / Block;
-                _w.Write(Magic);
-                _w.Write(1);
-                _w.Write(frame.Width);
-                _w.Write(frame.Height);
-                _w.Write(Block);
-                _w.Write(Cols);
-                _w.Write(Rows);
-                _headerWritten = true;
-            }
-            else if (frame.Width / Block != Cols || frame.Height / Block != Rows)
-                return; // the stream changed size mid-recording; keep the file consistent
+            if (!Header(frame.Width, frame.Height)) return;
             _w.Write(hostTime);
             _w.Write(jpegBytes);
             var blocks = BlockMeans(frame, Cols, Rows);
             _w.Write(MemoryMarshal.AsBytes(blocks.AsSpan()));
             Frames++;
+        }
+
+        /// <summary>Block sums computed on the headset from the raw frame (jpegBytes = 0: no JPEG involved).</summary>
+        public void WriteBlocks(double hostTime, int width, int height, ReadOnlySpan<ushort> sums)
+        {
+            if (!Header(width, height) || sums.Length != Cols * Rows) return;
+            _w.Write(hostTime);
+            _w.Write(0);
+            _w.Write(MemoryMarshal.AsBytes(sums));
+            Frames++;
+        }
+
+        private bool Header(int width, int height)
+        {
+            if (!_headerWritten)
+            {
+                Cols = width / Block;
+                Rows = height / Block;
+                _w.Write(Magic);
+                _w.Write(1);
+                _w.Write(width);
+                _w.Write(height);
+                _w.Write(Block);
+                _w.Write(Cols);
+                _w.Write(Rows);
+                _headerWritten = true;
+                return true;
+            }
+            // the stream changed size mid-recording; keep the file consistent
+            return width / Block == Cols && height / Block == Rows;
         }
 
         public void Dispose() => _w.Dispose();

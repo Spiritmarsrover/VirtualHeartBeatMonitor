@@ -15,6 +15,7 @@ const string Usage = """
                     The tracker is always used as the reference and for breathing.
       --motion      motion threshold in deg/s for the stillness gate (default 8)
       --min-window  shortest analysis window in seconds after settling (default 6)
+      --window      longest analysis window in seconds (default 12)
       --max-masked  largest share of a window that may be cut out for movement (default 0.25)
       --timeline    print one timeline row every N seconds (default 5, 0 = off)
       --csv         write replay.csv into the recording folder
@@ -30,7 +31,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help")
 string folder = args[0];
 string[]? hrDevices = null;
 double motion = 8;
-double minWindow = 6, maxMasked = 0.25;
+double minWindow = 6, maxMasked = 0.25, window = 12;
 double headWeight = 2, handWeight = 1, chestWeight = 3;
 double timelineEvery = 5;
 bool writeCsv = false;
@@ -42,6 +43,7 @@ for (int i = 1; i < args.Length; i++)
         case "--hr-devices": hrDevices = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries); break;
         case "--motion": motion = double.Parse(args[++i], CultureInfo.InvariantCulture); break;
         case "--min-window": minWindow = double.Parse(args[++i], CultureInfo.InvariantCulture); break;
+        case "--window": window = double.Parse(args[++i], CultureInfo.InvariantCulture); break;
         case "--max-masked": maxMasked = double.Parse(args[++i], CultureInfo.InvariantCulture); break;
         case "--head-weight": headWeight = double.Parse(args[++i], CultureInfo.InvariantCulture); break;
         case "--hand-weight": handWeight = double.Parse(args[++i], CultureInfo.InvariantCulture); break;
@@ -54,7 +56,7 @@ for (int i = 1; i < args.Length; i++)
 }
 
 var recording = Recording.Load(folder);
-var engine = new MonitorEngine(new EngineSettings { MotionThresholdDps = motion, MinWindowSeconds = minWindow, MaxMaskedFraction = maxMasked,
+var engine = new MonitorEngine(new EngineSettings { MotionThresholdDps = motion, WindowSeconds = window, MinWindowSeconds = minWindow, MaxMaskedFraction = maxMasked,
     HeadWeight = headWeight, HandWeight = handWeight, ChestWeight = chestWeight });
 const string ReferenceKind = "Tracker";
 foreach (var d in recording.Devices)

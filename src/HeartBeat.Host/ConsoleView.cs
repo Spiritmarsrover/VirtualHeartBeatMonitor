@@ -67,7 +67,7 @@ public sealed class ConsoleView
         var snap = session.LatestSnapshot;
         bool flash = HostClock.Now - session.LastBeatHostTime < 0.25;
         lines.Add($"  Heart rate   {snap?.Heart.DisplayText ?? "--",4} BPM   {(flash ? "♥" : " ")}   confidence {(snap == null ? 0 : snap.Heart.Confidence):0.00}");
-        lines.Add($"  Status       {OverlayRenderer.StatusText(session)}");
+        lines.Add($"  Status       {session.StatusText()}");
         double measuredPct = session.BeatCount == 0 ? 0 : 100.0 * session.MeasuredBeatCount / session.BeatCount;
         lines.Add($"  Beats        {session.BeatCount} sent, {measuredPct:0}% measured" +
                   (session.LastBeat is { } b ? $", last {(b.Measured ? "measured" : "predicted")}, delay {b.DelaySeconds * 1000:0} ms" : ""));

@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <RootNamespace>HeartBeat.Tracking</RootNamespace>
+    <!-- Managed only (openvr_api is loaded at run time), so it also runs on the Steam Frame (arm64). -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- The generated OpenVR binding is not nullable-annotated and uses obsolete patterns. -->
     <NoWarn>$(NoWarn);CS0618;CS0649;CS0169;CS0414;CS8600;CS8601;CS8602;CS8603;CS8604;CS8605;CS8618;CS8625</NoWarn>
   </PropertyGroup>

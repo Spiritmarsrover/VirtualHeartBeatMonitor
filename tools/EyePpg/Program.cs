@@ -7,12 +7,14 @@ const string Usage = """
     Needs FrameEyeCameraFeed running on the headset (see tools/EyePpg/README.md).
 
     Usage:
-      EyePpg record  [--url http://frame:8090] [--seconds 120] [--label name] [--note text] [--no-imu] [--no-pulse]
-      EyePpg analyze <recording folder> [--ref BPM] [--inject BPM[:amplitude]] [--no-imu-ref]
+      EyePpg record  [--url http://frame:8090] [--blocks] [--seconds 120] [--label name] [--note text] [--no-imu] [--no-pulse]
+      EyePpg analyze <recording folder> [--poses <Probe folder>] [--ref BPM] [--inject BPM[:amplitude]] [--no-imu-ref]
 
-      record   saves both eye cameras (8x8 block means) plus the SteamVR IMU (if available) to recordings/
+      record   saves both eye cameras (8x8 block means) plus headset/controller motion to recordings/
+        --blocks  read exact block sums from the eyeblocks helper (tools/EyePpg/headset; --url ...:8091)
       analyze  pulse map per eye, heart rate from the eyes vs the IMU / your counted pulse
-        --ref     reference heart rate when there is no IMU (default: IMU, else your counted pulse)
+        --poses   take the reference and movement from a separate Probe recording (aligned by start time)
+        --ref     reference heart rate (default: headset motion in the folder, else your counted pulse)
         --inject  adds a fake pulse to the recorded skin blocks (default amplitude 0.003 = 0.3 %),
                   to check the analysis finds a pulse that is known to be there
     """;
@@ -63,7 +65,7 @@ namespace HeartBeat.EyePpg
             return i > 0 && args[i - 1].StartsWith("--") && !Flags.Contains(args[i - 1]);
         }
 
-        private static readonly string[] Flags = ["--no-imu", "--no-pulse", "--no-imu-ref"];
+        private static readonly string[] Flags = ["--no-imu", "--no-pulse", "--no-imu-ref", "--blocks"];
 
         public bool Has(string name) => args.Contains(name);
 

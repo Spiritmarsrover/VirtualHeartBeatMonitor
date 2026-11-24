@@ -102,9 +102,12 @@ public sealed class WristOverlay : IDisposable
     public bool Visible => _visible;
 
     /// <summary>Shows a Direct3D 11 texture (BGRA). Returns the SteamVR result.</summary>
-    public EVROverlayError SetTexture(IntPtr d3d11Texture)
+    public EVROverlayError SetTexture(IntPtr d3d11Texture) =>
+        SetTexture(new Texture_t { handle = d3d11Texture, eType = ETextureType.DirectX, eColorSpace = EColorSpace.Auto });
+
+    /// <summary>Any texture type (Vulkan on the Steam Frame).</summary>
+    public EVROverlayError SetTexture(Texture_t t)
     {
-        var t = new Texture_t { handle = d3d11Texture, eType = ETextureType.DirectX, eColorSpace = EColorSpace.Auto };
         var err = _overlay.SetOverlayTexture(_handle, ref t);
         LastError = err == EVROverlayError.None ? null : $"SetOverlayTexture: {err}";
         return err;

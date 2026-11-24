@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Development tool: renders Noto Sans into the glyph atlas used by the native Steam Frame app
+       (no System.Drawing on Linux). Run once when the font sizes change; the atlas is committed. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>HeartBeat.FontAtlas</RootNamespace>
+  </PropertyGroup>
+
+</Project>

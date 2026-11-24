@@ -7,7 +7,7 @@
     <RootNamespace>HeartBeat.App</RootNamespace>
     <AssemblyName>HeartBeatMonitor</AssemblyName>
     <Product>VirtualHeartBeatMonitor</Product>
-    <Version>0.2.1</Version>
+    <Version>0.3.0</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
@@ -30,6 +30,7 @@
     <ProjectReference Include="..\HeartBeat.Core\HeartBeat.Core.csproj" />
     <ProjectReference Include="..\HeartBeat.Osc\HeartBeat.Osc.csproj" />
     <ProjectReference Include="..\HeartBeat.Tracking\HeartBeat.Tracking.csproj" />
+    <ProjectReference Include="..\HeartBeat.Host\HeartBeat.Host.csproj" />
   </ItemGroup>
 
 </Project>

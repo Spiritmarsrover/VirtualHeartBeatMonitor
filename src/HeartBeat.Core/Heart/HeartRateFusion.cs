@@ -48,6 +48,12 @@ public sealed class HeartRateFusion
     /// </summary>
     public int ReleaseAfterUpdates { get; set; } = 3;
 
+    /// <summary>
+    /// The same, when the raw peak is about double the shown value. A Frame capture (2026-11-24) had
+    /// a 3 s doubling (55 -> 109) that the 3-update release turned into a shown spike.
+    /// </summary>
+    public int ReleaseUpOctaveAfterUpdates { get; set; } = 15;
+
     private int _disagreeing;
     private double _bpm = double.NaN;
     private double _confidence;
@@ -106,7 +112,11 @@ public sealed class HeartRateFusion
         // row: the shown value is stuck (typically on a harmonic picked up while settling).
         _disagreeing = confidence >= ConfidentThreshold && !double.IsNaN(_bpm) && Math.Abs(rawBpm - _bpm) > PriorSigmaBpm
             ? _disagreeing + 1 : 0;
-        bool release = _disagreeing >= ReleaseAfterUpdates;
+        // Jumping up to about double the shown value is what a harmonic (doubling) error looks like,
+        // so it has to persist much longer; jumping down to the fundamental stays quick.
+        double ratio = rawBpm / _bpm;
+        bool upAnOctave = ratio > 1.8 && ratio < 2.2;
+        bool release = _disagreeing >= (upAnOctave ? ReleaseUpOctaveAfterUpdates : ReleaseAfterUpdates);
         if (release) { bpm = rawBpm; _disagreeing = 0; }
 
         _bpm = double.IsNaN(_bpm) || _confidence < ConfidentThreshold || release

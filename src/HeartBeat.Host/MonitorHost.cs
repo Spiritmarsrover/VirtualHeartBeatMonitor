@@ -49,19 +49,24 @@ public sealed class MonitorHost : IDisposable
     public int SettingsVersion => Volatile.Read(ref _settingsVersion);
     private int _settingsVersion;
 
-    public OverlayRenderer OverlayRenderer { get; } = new();
-
     /// <summary>Raised (on the host thread) when SteamVR closes and SteamVR had launched the app.</summary>
     public event Action? SteamVrClosed;
 
-    public MonitorHost(AppSettings settings, string settingsPath, bool launchedBySteamVr, bool noOsc)
+    private readonly PanelsFactory? _panels;
+
+    /// <param name="panels">Creates the platform's in-VR panels for each SteamVR session (null: none).</param>
+    public MonitorHost(AppSettings settings, string settingsPath, bool launchedBySteamVr, bool noOsc, PanelsFactory? panels = null)
     {
         Settings = settings;
         _settingsPath = settingsPath;
         LaunchedBySteamVr = launchedBySteamVr;
         _noOsc = noOsc;
+        _panels = panels;
         _thread = new Thread(Run) { IsBackground = true, Name = "MonitorHost" };
     }
+
+    /// <summary>Shows a problem in the window/dashboard and writes it to the log.</summary>
+    public void ReportError(string? message) => LastError = message;
 
     public void Start() => _thread.Start();
 
@@ -199,6 +204,8 @@ public sealed class MonitorHost : IDisposable
         {
             RuntimeVersion = vr.RuntimeVersion;
             AppLog.Write($"Connected to SteamVR {RuntimeVersion}");
+            string exe = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "HeartBeatMonitor.exe");
+            if (SteamVrAutoStart.Register(vr, exe) is { } registerError) AppLog.Write(registerError);
             AutoStartEnabled = SteamVrAutoStart.IsEnabled(vr);
             using var session = new LiveSession(vr, Settings);
             session.SnapshotReady += snap => Osc?.OnSnapshot(snap, HostClock.Now);
@@ -216,22 +223,9 @@ public sealed class MonitorHost : IDisposable
             var haptics = new ControllerHaptics(vr, AppContext.BaseDirectory);
             HapticsError = haptics.Error;
             if (haptics.Error != null) AppLog.Write($"Vibration: {haptics.Error}");
-            using var d3d = D3D11Textures.TryCreate(out string? d3dError);
-            if (d3dError != null) AppLog.Write($"{d3dError}; panels use raw uploads");
-
-            WristOverlay? wrist = null;
-            DashboardPanel? dashboard = null;
-            PanelPresenter? wristImage = null, dashboardImage = null;
-            double nextPanelAttempt = 0;
-            using var dashboardUi = new DashboardUi(this);
+            using var panels = _panels?.Invoke(this, vr, haptics);
 
             bool quit = false;
-            double nextWristFrame = 0, lastDashboardDraw = double.NegativeInfinity;
-            string wristKey = "";
-            bool wristWasVisible = false;
-            string appliedWrist = "";
-            var grab = new WristGrab();
-            var poses = new TrackedDevicePose_t[Valve.VR.OpenVR.k_unMaxTrackedDeviceCount];
             try
             {
                 while (!_stop.IsCancellationRequested)
@@ -241,22 +235,6 @@ public sealed class MonitorHost : IDisposable
                         if (!session.Poll()) { quit = true; AppLog.Write("SteamVR is closing"); break; }
                         ApplyRequests(vr);
                         TickDiagnostics(session, stopNow: false);
-
-                        // Create the panels; retry if SteamVR still holds the names from a previous run.
-                        if ((wrist == null || dashboard == null) && HostClock.Now >= nextPanelAttempt)
-                        {
-                            nextPanelAttempt = HostClock.Now + 5;
-                            if (wrist == null && (wrist = TryCreate(() => new WristOverlay(vr.Overlay!, vr.System, "virtualheartbeatmonitor.wrist", "Heart rate"))) != null)
-                                wristImage = new PanelPresenter("Wrist", d3d, OverlayRenderer.Width, OverlayRenderer.Height);
-                            if (dashboard == null && (dashboard = TryCreate(() => new DashboardPanel(vr.Overlay!, "virtualheartbeatmonitor.dashboard", "Heart rate", DashboardUi.Width, DashboardUi.Height))) != null)
-                            {
-                                dashboardImage = new PanelPresenter("Dashboard", d3d, DashboardUi.Width, DashboardUi.Height);
-                                string thumb = Path.Combine(Path.GetTempPath(), "virtualheartbeatmonitor_icon.png");
-                                DashboardUi.WriteThumbnail(thumb);
-                                dashboard.SetThumbnail(thumb);
-                            }
-                            if (wrist != null && dashboard != null) { LastError = null; AppLog.Write("Panels created"); }
-                        }
 
                         // Heartbeat vibration.
                         haptics.Update();
@@ -271,84 +249,7 @@ public sealed class MonitorHost : IDisposable
                             if (HapticsError != null) AppLog.Write($"Vibration: {HapticsError}");
                         }
 
-                        // Wrist panel: redraw when its content changes, fast only during the beat pulse.
-                        if (wrist != null && wristImage != null)
-                        {
-                            var o = Settings.Overlay;
-                            string wanted = $"{o.Hand}|{o.WidthMeters}|{string.Join(",", o.Placement ?? [])}";
-                            if (wanted != appliedWrist && !grab.Holding)
-                            {
-                                wrist.WidthMeters = o.WidthMeters;
-                                wrist.Placement = o.PlacementMatrix();
-                                wrist.Invalidate();
-                                appliedWrist = wanted;
-                            }
-                            wrist.Update(o.Hand);
-
-                            // Moving the panel: with the option on, grab it with the other hand (grip or
-                            // trigger, near the panel), carry it, let go. The new placement is saved.
-                            bool moving = MovingWristPanel && wrist.Visible;
-                            haptics.GrabActive = moving;
-                            if (moving || grab.Holding)
-                            {
-                                vr.System.GetDeviceToAbsoluteTrackingPose(ETrackingUniverseOrigin.TrackingUniverseStanding, 0f, poses);
-                                var result = grab.Update(wrist, vr.System, poses, haptics, moving);
-                                if (result == WristGrab.Result.Released)
-                                {
-                                    o.Placement = Rigid.ToArray(wrist.Placement).ToList();
-                                    appliedWrist = $"{o.Hand}|{o.WidthMeters}|{string.Join(",", o.Placement)}";
-                                    SettingsChanged();
-                                    AppLog.Write("Wrist panel moved");
-                                }
-                            }
-                            if (wrist.Visible != wristWasVisible)
-                            {
-                                AppLog.Write($"Wrist panel {(wrist.Visible ? "shown" : "hidden")}");
-                                wristWasVisible = wrist.Visible;
-                                wristKey = ""; // force a redraw when it comes back
-                            }
-                            if (wrist.Visible)
-                            {
-                                string key = OverlayRenderer.ContentKey(session) + (moving ? "|moving" + grab.Holding : "");
-                                bool animating = HostClock.Now - session.LastBeatHostTime < 0.45;
-                                bool due = key != wristKey || (animating && HostClock.Now >= nextWristFrame) || HostClock.Now >= nextWristFrame + 1;
-                                if (due)
-                                {
-                                    nextWristFrame = HostClock.Now + 1.0 / 30;
-                                    wristKey = key;
-                                    var bmp = OverlayRenderer.Draw(session, moving ? (grab.Holding ? "Let go to place it here" : "Grab with your other hand") : null);
-                                    wristImage.Present(bmp, wrist.SetTexture, rgba => wrist.SetImage(rgba, OverlayRenderer.Width, OverlayRenderer.Height));
-                                    if (wrist.LastError != null) LastError = $"Wrist panel: {wrist.LastError}";
-                                }
-                            }
-                            if (DumpDir != null)
-                            {
-                                OverlayRenderer.Draw(session);
-                                DumpForDevelopment("overlay.png", 15, OverlayRenderer.SavePng);
-                            }
-                        }
-
-                        // SteamVR dashboard tab: input every pass, redraw while open (or right after input).
-                        if (dashboard != null && dashboardImage != null)
-                        {
-                            bool changed = dashboardUi.Handle(dashboard.PollMouse());
-                            bool visible = dashboard.Visible;
-                            // 4 fps normally, 30 fps while the heart pulses so the animation follows each beat.
-                            bool pulsing = HostClock.Now - session.LastBeatHostTime < 0.45;
-                            double sinceDraw = HostClock.Now - lastDashboardDraw;
-                            if (visible && (changed || sinceDraw >= 0.25 || (pulsing && sinceDraw >= 1.0 / 30)))
-                            {
-                                lastDashboardDraw = HostClock.Now;
-                                var bmp = dashboardUi.Draw(session);
-                                dashboardImage.Present(bmp, dashboard.SetTexture, rgba => dashboard.SetImage(rgba, dashboardUi.SavePng));
-                            }
-                            if (DumpDir != null)
-                            {
-                                dashboardUi.Draw(session);
-                                DumpForDevelopment("dashboard.png", 15, dashboardUi.SavePng);
-                            }
-                            if (dashboard.LastError != null) LastError = $"Dashboard: {dashboard.LastError}";
-                        }
+                        panels?.Update(session);
                     }
                     catch (Exception e) when (e is not OperationCanceledException)
                     {
@@ -369,10 +270,6 @@ public sealed class MonitorHost : IDisposable
                     while (_diagnostics != null && HostClock.Now - started < 10) { TickDiagnostics(session, stopNow: true); Thread.Sleep(50); }
                 }
                 Osc?.Disconnect();
-                wristImage?.Dispose();
-                dashboardImage?.Dispose();
-                wrist?.Dispose();
-                dashboard?.Dispose();
                 Session = null;
                 Connected = false;
             }
@@ -409,16 +306,6 @@ public sealed class MonitorHost : IDisposable
             }
         }
         else if (session.Notice != null && HostClock.Now > _diagnosticsNoticeUntil) session.Notice = null;
-    }
-
-    private T? TryCreate<T>(Func<T> create) where T : class
-    {
-        try { return create(); }
-        catch (Exception e) when (e is InvalidOperationException or NullReferenceException)
-        {
-            LastError = $"{typeof(T).Name} unavailable: {e.Message}";
-            return null;
-        }
     }
 
     private void ApplyRequests(VrRuntime vr)
@@ -476,9 +363,9 @@ public sealed class MonitorHost : IDisposable
 
     // HEARTBEAT_DUMP_DIR=<folder> saves pictures of the panels once (development aid).
     private readonly HashSet<string> _dumped = new();
-    internal static string? DumpDir => Environment.GetEnvironmentVariable("HEARTBEAT_DUMP_DIR");
+    public static string? DumpDir => Environment.GetEnvironmentVariable("HEARTBEAT_DUMP_DIR");
 
-    internal void DumpForDevelopment(string file, double afterSeconds, Action<string> save)
+    public void DumpForDevelopment(string file, double afterSeconds, Action<string> save)
     {
         if (DumpDir is not { } dir || _dumped.Contains(file) || Session is not { } s || HostClock.Now - s.StartedAt < afterSeconds) return;
         _dumped.Add(file);
@@ -498,7 +385,6 @@ public sealed class MonitorHost : IDisposable
         if (_thread.IsAlive) _thread.Join(TimeSpan.FromSeconds(5));
         Osc?.Dispose();
         _sink?.Dispose();
-        OverlayRenderer.Dispose();
         _wake.Dispose();
     }
 }

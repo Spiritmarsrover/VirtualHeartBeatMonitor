@@ -29,9 +29,16 @@ jobs:
         shell: pwsh
         run: ./tools/publish.ps1 -Version "${{ github.ref_name }}".TrimStart('v')
 
+      - name: Package (Steam Frame)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: ./tools/publish-frame.ps1 -Version "${{ github.ref_name }}".TrimStart('v')
+
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
           generate_release_notes: true
