@@ -8,7 +8,7 @@
     <RootNamespace>HeartBeat.Native</RootNamespace>
     <AssemblyName>HeartBeatMonitor</AssemblyName>
     <Product>VirtualHeartBeatMonitor</Product>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
