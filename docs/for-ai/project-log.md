@@ -543,3 +543,15 @@ Recordings: `recordings/20261122_183622_eyes_test1-still` + `recordings/*_frame-
   ~2x now needs 15 updates; replay shows 55 throughout; all other recordings unchanged.
 - Same capture: "--" came from low prominence (HMD ~11, controllers resting and sitting out), not
   the motion gate (0 % moving). Held controllers raise prominence to 34–99 (TEST 3).
+- Graph labels on both sides (all graphs). Graph time window: `GraphSettings.Seconds` (1/2/5/10 min,
+  default 2), one setting for the dashboard and the PC window. PC window: a ComboBox above the
+  graph; dashboard: the title above the graph is a `DashboardModel.Dropdown` (opens a list over the
+  graph; the next press picks or closes; hidden without a session). Wrist graph stays 60 s.
+  Rendered offline on both drawers; not yet seen in a headset.
+- Graph windows extended to 30 min and 1 h (LiveSession keeps 1 h); long windows are thinned to
+  about one point per pixel (`GraphScale.Thin`: group mean, or a gap when most of the group was "--").
+- Heart rate log (`HeartRateLog`, setting `heartRateLog.enabled`, default on): one CSV row per engine
+  update (`time,bpm,confidence,state`; bpm empty on "--"; state ok/unsure/measuring/moving/no data),
+  one file per local day in `heart-rate-log/` next to the app. "Export heart rate log" (window,
+  tray, dashboard) joins all days into one CSV on the Desktop (`DiagnosticsReport.OutputFolder`).
+  Tested offline across midnight; not yet in a live session.

@@ -17,9 +17,14 @@ public sealed class DashboardModel
     public const float Header = 60;
     public const string Title = "Virtual Heart Rate Monitor";
     public const string Description = "Each beat of your heart moves your body slightly. VR devices can read that to measure your heart rate while you stay still.";
-    public const double GraphSeconds = 120;
+    /// <summary>Top of the dashboard graph area (the live card's graph sits right below the time menu).</summary>
+    public const float GraphTop = Header + 278;
 
     private readonly MonitorHost _host;
+
+    /// <summary>The graph's time window: its title above the graph opens the list.</summary>
+    public Dropdown GraphMenu { get; }
+    public double GraphSeconds => _host.Settings.Graph.WindowSeconds;
     private readonly List<Widget> _widgets = new();
     private readonly List<(RectangleF box, LiveSession.DeviceEntry device)> _deviceSwitches = new();
     private Widget? _pressed;
@@ -43,13 +48,22 @@ public sealed class DashboardModel
         Add(new Toggle("Heart HUD in view", () => s.Hud.Enabled, v => s.Hud.Enabled = v));
         if (desktopWindowOption)
             Add(new Toggle("Show desktop window", () => s.General.ShowDesktopWindow, v => s.General.ShowDesktopWindow = v));
+        Add(new Toggle("Keep a heart rate log", () => s.HeartRateLog.Enabled, v => s.HeartRateLog.Enabled = v));
         Add(new Toggle("Start with SteamVR", () => host.AutoStartEnabled, v => host.RequestAutoStart(v), savesSettings: false));
         Add(new Segment("Wrist panel", ["Off", "Left", "Right"], () => (int)s.Overlay.Hand, i => s.Overlay.Hand = (OverlayHand)i));
         Add(new Slider("Panel size", 0.05, 0.15, () => s.Overlay.WidthMeters, v => s.Overlay.WidthMeters = (float)v, v => $"{v * 100:0} cm"));
         Add(new Toggle("Move wrist panel (grab it)", () => host.MovingWristPanel, v => host.SetMoveWristPanel(v), savesSettings: false));
         // Buttons last, together.
         Add(new Button("Reset panel position", () => s.Overlay.ResetPosition()));
+        Add(new Button("Export heart rate log", () => host.ExportLog()));
         Add(new Button("Create diagnostics report", () => host.RequestDiagnostics()));
+
+        // In the live card, above the graph. Added last so its open list draws over everything.
+        GraphMenu = new Dropdown("Graph time", GraphSettings.Windows.Select(w => w.Text).ToArray(), () => s.Graph.Index, i => s.Graph.Select(i))
+        {
+            Bounds = new RectangleF(48, GraphTop - 27, 184, 26),
+        };
+        _widgets.Add(GraphMenu);
     }
 
     /// <summary>The drawer lists the device rows it drew, so taps on them can switch devices.</summary>
@@ -69,13 +83,20 @@ public sealed class DashboardModel
                 case PanelMouse.Down:
                     if (_pressed is Slider { SavesSettings: true }) _host.SettingsChanged(); // release never came
                     _pressed = null;
+                    if (_widgets.OfType<Dropdown>().FirstOrDefault(d => d.Open) is { } open)
+                    {
+                        // An open list takes the next press: an option picks it, anywhere else closes it.
+                        if (open.Choose(e.X, e.Y)) _host.SettingsChanged();
+                        changed = true;
+                        break;
+                    }
                     if (_deviceSwitches.FirstOrDefault(s => s.box.Contains(e.X, e.Y)).device is { } dev)
                     {
                         _host.SetDeviceUsed(dev, !dev.UsedForHeartRate);
                         changed = true;
                         break;
                     }
-                    var hit = _widgets.FirstOrDefault(w => w.Bounds.Contains(e.X, e.Y));
+                    var hit = _widgets.FirstOrDefault(w => w.Bounds.Contains(e.X, e.Y) && w is not Dropdown { Shown: false });
                     if (hit is Slider sd) { sd.Drag(e.X); _pressed = sd; changed = true; }
                     else if (hit != null)
                     {
@@ -168,6 +189,37 @@ public sealed class DashboardModel
             var box = Box;
             int i = (int)((x - box.X) / (box.Width / options.Length));
             if (i >= 0 && i < options.Length) set(i);
+        }
+    }
+
+    /// <summary>A box showing the chosen option; a press opens the option list below it.</summary>
+    public sealed class Dropdown(string label, string[] options, Func<int> get, Action<int> set) : Widget(label, savesSettings: false)
+    {
+        public const float RowHeight = 32;
+        public IReadOnlyList<string> Options => options;
+        public int Selected => get();
+        public bool Open { get; private set; }
+
+        /// <summary>Set by the drawer each frame (the graph menu only shows with a graph); hidden means closed and not clickable.</summary>
+        public bool Shown
+        {
+            get => _shown;
+            set { _shown = value; if (!value) Open = false; }
+        }
+        private bool _shown = true;
+
+        public RectangleF List => new(Bounds.X, Bounds.Bottom + 2, Bounds.Width, options.Length * RowHeight);
+        public RectangleF OptionBox(int i) => new(Bounds.X, Bounds.Bottom + 2 + i * RowHeight, Bounds.Width, RowHeight);
+
+        public override void Click(float x) => Open = true;
+
+        /// <summary>Closes the list; returns true when the press picked an option.</summary>
+        public bool Choose(float x, float y)
+        {
+            Open = false;
+            for (int i = 0; i < options.Length; i++)
+                if (OptionBox(i).Contains(x, y)) { set(i); return true; }
+            return false;
         }
     }
 

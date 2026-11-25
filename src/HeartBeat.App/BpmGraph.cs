@@ -19,7 +19,7 @@ public static class BpmGraph
         var (min, max) = GraphScale.Range(history, fine);
         var labelSize = g.MeasureString("000", style.Font);
         float labelWidth = labelSize.Width, inset = labelSize.Height / 2 + 1; // room for the top and bottom labels
-        var plot = new RectangleF(area.X + labelWidth, area.Y + inset, area.Width - labelWidth, area.Height - 2 * inset);
+        var plot = new RectangleF(area.X + labelWidth, area.Y + inset, area.Width - 2 * labelWidth, area.Height - 2 * inset); // labels on both sides
         double end = GraphScale.RightEdge(history, now);
 
         float Y(double bpm) => GraphScale.Y(bpm, min, max, plot.Top, plot.Bottom);
@@ -30,18 +30,21 @@ public static class BpmGraph
         using (var label = new SolidBrush(style.Label))
         {
             var right = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+            var left = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
             foreach (var line in GraphScale.Lines(min, max, fine))
             {
                 float y = Y(line.Value);
                 g.DrawLine(line.Dashed ? dashed : solid, plot.X, y, plot.Right, y);
-                if (line.Label)
-                    g.DrawString(line.Value.ToString("0"), style.Font, label, new RectangleF(area.X - 6, y - inset, labelWidth + 2, 2 * inset), right);
+                if (!line.Label) continue;
+                string text = line.Value.ToString("0");
+                g.DrawString(text, style.Font, label, new RectangleF(area.X - 6, y - inset, labelWidth + 2, 2 * inset), right);
+                g.DrawString(text, style.Font, label, new RectangleF(plot.Right + 2, y - inset, labelWidth + 4, 2 * inset), left);
             }
         }
 
         var oldClip = g.Clip;
         g.SetClip(plot);
-        var recent = history.Where(p => end - p.t <= seconds).ToList();
+        var recent = GraphScale.Thin(history.Where(p => end - p.t <= seconds).ToList(), (int)plot.Width);
         using var brush = new SolidBrush(style.Fill);
         using var pen = new Pen(style.Line, 2f) { LineJoin = LineJoin.Round };
         foreach (var run in GraphScale.Runs(recent, fine))

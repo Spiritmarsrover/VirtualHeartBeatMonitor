@@ -28,7 +28,7 @@ public sealed class MainForm : Form
     private readonly GraphPanel _graph = new() { Height = 240, Anchor = AnchorStyles.Left | AnchorStyles.Right, Margin = new Padding(0, 6, 0, 0) };
     private readonly Font _graphFont = new("Segoe UI", 8.5f);
     private int _graphPoints = -1;
-    private const double GraphSeconds = 120;
+    private readonly ComboBox _graphWindow = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 130, Margin = new Padding(0, 8, 0, 0) };
     private readonly ListView _devices = new() { View = View.Details, CheckBoxes = true, FullRowSelect = true, HeaderStyle = ColumnHeaderStyle.Nonclickable, Dock = DockStyle.Fill };
 
     private readonly CheckBox _osc = new() { Text = "Send to VRChat (OSC)", AutoSize = true };
@@ -49,6 +49,8 @@ public sealed class MainForm : Form
     private readonly CheckBox _showWindow = new() { Text = "Show this window (otherwise tray icon)", AutoSize = true };
     private readonly CheckBox _autoStart = new() { Text = "Start with SteamVR", AutoSize = true };
     private readonly Button _diagnostics = new() { Text = "Create diagnostics report", AutoSize = true };
+    private readonly CheckBox _log = new() { Text = "Keep a heart rate log", AutoSize = true };
+    private readonly Button _exportLog = new() { Text = "Export heart rate log", AutoSize = true };
     private readonly CheckedListBox _chest = new() { CheckOnClick = true, Height = 56, Width = 270, IntegralHeight = false };
     private readonly Label _footer = new() { AutoSize = true, ForeColor = Grey, MaximumSize = new Size(620, 0) };
 
@@ -110,7 +112,7 @@ public sealed class MainForm : Form
     private void BuildLayout()
     {
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1 };
-        for (int i = 0; i < 5; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        for (int i = 0; i < 6; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -121,12 +123,15 @@ public sealed class MainForm : Form
         root.Controls.Add(_status);
         root.Controls.Add(_beats);
         root.Controls.Add(_breathing);
+        _graphWindow.Items.AddRange(GraphSettings.Windows.Select(w => (object)w.Text).ToArray());
+        root.Controls.Add(_graphWindow);
         root.Controls.Add(_graph);
         _graph.Paint += (_, e) =>
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            var history = _host.Session?.GetHistory(GraphSeconds) ?? [];
-            BpmGraph.Draw(e.Graphics, new RectangleF(0, 0, _graph.Width - 4, _graph.Height), history, HostClock.Now, GraphSeconds,
+            double seconds = _host.Settings.Graph.WindowSeconds;
+            var history = _host.Session?.GetHistory(seconds) ?? [];
+            BpmGraph.Draw(e.Graphics, new RectangleF(0, 0, _graph.Width - 4, _graph.Height), history, HostClock.Now, seconds,
                 new BpmGraph.Style(HeartRed, Color.FromArgb(45, HeartRed), Color.FromArgb(70, Grey), Grey, _graphFont));
         };
 
@@ -148,7 +153,7 @@ public sealed class MainForm : Form
                 Row(Label("Size"), _panelSize),
                 _movePanel,
                 _panelReset),
-            Group("General", _showWindow, _autoStart, _diagnostics),
+            Group("General", _showWindow, _autoStart, _log, _exportLog, _diagnostics),
             Group("Chest tracker (after restart)", _chest));
         var settings = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true };
         settings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -177,6 +182,12 @@ public sealed class MainForm : Form
         _panelReset.Click += (_, _) => { Apply(() => _host.Settings.Overlay.ResetPosition()); LoadSettings(); };
         _showWindow.CheckedChanged += (_, _) => Apply(() => _host.Settings.General.ShowDesktopWindow = _showWindow.Checked);
         _hud.CheckedChanged += (_, _) => Apply(() => _host.Settings.Hud.Enabled = _hud.Checked);
+        _log.CheckedChanged += (_, _) => Apply(() => _host.Settings.HeartRateLog.Enabled = _log.Checked);
+        _graphWindow.SelectedIndexChanged += (_, _) =>
+        {
+            Apply(() => _host.Settings.Graph.Select(_graphWindow.SelectedIndex));
+            _graph.Invalidate();
+        };
         _devices.ItemChecked += (_, e) =>
         {
             if (_loading || e.Item.Tag is not LiveSession.DeviceEntry entry || entry.UsedForHeartRate == e.Item.Checked) return;
@@ -216,6 +227,7 @@ public sealed class MainForm : Form
         _tray.Icon = _trayIdle;
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open window", null, (_, _) => ShowWindow());
+        menu.Items.Add("Export heart rate log", null, (_, _) => _host.ExportLog());
         menu.Items.Add("Create diagnostics report", null, (_, _) => _host.RequestDiagnostics());
         menu.Items.Add("Quit", null, (_, _) => Close());
         _tray.ContextMenuStrip = menu;
@@ -233,6 +245,19 @@ public sealed class MainForm : Form
         });
         _host.DiagnosticsFailed += message => BeginInvoke(() =>
             _tray.ShowBalloonTip(8000, "Diagnostics report failed", message, ToolTipIcon.Warning));
+
+        _exportLog.Click += (_, _) => _host.ExportLog();
+        _host.LogExported += path => BeginInvoke(() =>
+        {
+            _tray.ShowBalloonTip(8000, "Heart rate log exported", $"{Path.GetFileName(path)} is on your Desktop.", ToolTipIcon.Info);
+            if (DiagnosticsReport.OutputOverride == null)
+            {
+                try { System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\""); }
+                catch (System.ComponentModel.Win32Exception) { }
+            }
+        });
+        _host.LogExportFailed += message => BeginInvoke(() =>
+            _tray.ShowBalloonTip(8000, "Heart rate log export failed", message, ToolTipIcon.Warning));
     }
 
     private void ShowWindow()
@@ -291,6 +316,9 @@ public sealed class MainForm : Form
         _movePanel.Checked = _host.MovingWristPanel;
         _showWindow.Checked = s.General.ShowDesktopWindow;
         _hud.Checked = s.Hud.Enabled;
+        _log.Checked = s.HeartRateLog.Enabled;
+        _graphWindow.SelectedIndex = s.Graph.Index;
+        _graph.Invalidate();
         _loading = false;
     }
 

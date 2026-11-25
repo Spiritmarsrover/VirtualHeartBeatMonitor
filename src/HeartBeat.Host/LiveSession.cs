@@ -239,7 +239,7 @@ public sealed class LiveSession : IDisposable
 
     // Updates run on the clock, not on incoming samples, so silence is noticed: devices that stop
     // sending are dropped and the number turns to "--" instead of freezing on the last value.
-    private const double HistorySeconds = 600;
+    private static readonly double HistorySeconds = GraphSettings.LongestSeconds; // the graph's longest window
     private readonly object _historyGate = new();
     private readonly Queue<(double t, double bpm)> _history = new();
 

@@ -118,8 +118,7 @@ public static class DiagnosticsReport
             if (File.Exists(src)) File.WriteAllText(Path.Combine(work, name), Mask(File.ReadAllText(src)));
         }
 
-        string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        string folder = OutputOverride ?? (Directory.Exists(desktop) ? desktop : AppContext.BaseDirectory);
+        string folder = OutputFolder();
         Directory.CreateDirectory(folder);
         string zip = Path.Combine(folder, $"VirtualHeartBeatMonitor-diagnostics-{stamp}.zip");
         ZipFile.CreateFromDirectory(work, zip, CompressionLevel.Optimal, includeBaseDirectory: false);
@@ -130,6 +129,13 @@ public static class DiagnosticsReport
 
     /// <summary>HEARTBEAT_DIAGNOSTICS_DIR overrides where reports are saved (development).</summary>
     public static string? OutputOverride => Environment.GetEnvironmentVariable("HEARTBEAT_DIAGNOSTICS_DIR");
+
+    /// <summary>Where reports and exports go: the Desktop (~/Desktop on the Frame), else the app folder.</summary>
+    public static string OutputFolder()
+    {
+        string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        return OutputOverride ?? (Directory.Exists(desktop) ? desktop : AppContext.BaseDirectory);
+    }
 
     public static string MaskSerial(string serial)
     {

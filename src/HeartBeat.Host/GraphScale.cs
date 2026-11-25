@@ -54,6 +54,30 @@ public static class GraphScale
         if (run.Count > 0) yield return run;
     }
 
+    /// <summary>
+    /// At most <paramref name="maxPoints"/> points (about one per pixel), for long windows: each group of
+    /// consecutive samples becomes its mean, or a dropout (0) when most of the group had no number.
+    /// </summary>
+    public static IReadOnlyList<(double t, double bpm)> Thin(IReadOnlyList<(double t, double bpm)> history, int maxPoints)
+    {
+        if (maxPoints < 2 || history.Count <= maxPoints) return history;
+        int size = (int)Math.Ceiling(history.Count / (double)maxPoints);
+        var thinned = new List<(double t, double bpm)>(history.Count / size + 1);
+        for (int start = 0; start < history.Count; start += size)
+        {
+            int end = Math.Min(history.Count, start + size);
+            double sum = 0, tSum = 0;
+            int shown = 0;
+            for (int i = start; i < end; i++)
+            {
+                tSum += history[i].t;
+                if (history[i].bpm > 0) { sum += history[i].bpm; shown++; }
+            }
+            thinned.Add((tSum / (end - start), shown * 2 >= end - start ? sum / shown : 0));
+        }
+        return thinned;
+    }
+
     /// <summary>Y for a value, clamped to the plot (dropouts and out-of-range values sit on the edge).</summary>
     public static float Y(double bpm, double min, double max, float top, float bottom) =>
         bottom - (float)((Math.Clamp(bpm, min, max) - min) / (max - min)) * (bottom - top);

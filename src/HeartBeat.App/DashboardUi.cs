@@ -50,6 +50,7 @@ public sealed class DashboardUi : IDisposable
             g.TranslateTransform(0, DashboardModel.Header);
             DrawLive(g, session);
             g.Restore(state);
+            _model.GraphMenu.Shown = session != null;
             using (var muted = new SolidBrush(Muted)) g.DrawString("Settings", _title, muted, 500, 26 + DashboardModel.Header);
             foreach (var w in _model.Widgets) DrawWidget(g, w);
         }
@@ -92,9 +93,9 @@ public sealed class DashboardUi : IDisposable
             g.DrawString(BeatsLine(session), _small, muted, 52, y);
             y += 30;
 
-            g.DrawString("Last 2 minutes", _small, muted, 52, y);
-            y += 22;
-            BpmGraph.Draw(g, new RectangleF(48, y, 400, 240), session.GetHistory(GraphSeconds), HostClock.Now, GraphSeconds,
+            y += 22; // the graph's time menu (a widget, drawn with the settings)
+            double seconds = _model.GraphSeconds;
+            BpmGraph.Draw(g, new RectangleF(48, y, 400, 240), session.GetHistory(seconds), HostClock.Now, seconds,
                 new BpmGraph.Style(Accent, Color.FromArgb(50, Accent), Line, Muted, _graphFont));
             y += 248;
             using (var pen = new Pen(Line)) g.DrawLine(pen, 52, y, 444, y);
@@ -167,6 +168,30 @@ public sealed class DashboardUi : IDisposable
                 var box = btn.Box;
                 using (var p = Rounded(box, 8)) using (var b = new SolidBrush(Line)) g.FillPath(b, p);
                 g.DrawString(btn.Label, _small, ink, box, center);
+                break;
+            }
+            case Dropdown { Shown: false }:
+                break;
+            case Dropdown dd:
+            {
+                var box = dd.Bounds;
+                var left = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
+                using (var p = Rounded(box, 7)) using (var b = new SolidBrush(Line)) g.FillPath(b, p);
+                g.DrawString(dd.Options[dd.Selected], _small, ink, new RectangleF(box.X + 10, box.Y, box.Width - 30, box.Height), left);
+                float ax = box.Right - 18, ay = box.Y + box.Height / 2;
+                g.FillPolygon(ink, dd.Open
+                    ? [new PointF(ax - 5, ay + 3), new PointF(ax + 5, ay + 3), new PointF(ax, ay - 3)]
+                    : [new PointF(ax - 5, ay - 3), new PointF(ax + 5, ay - 3), new PointF(ax, ay + 3)]);
+                if (!dd.Open) break;
+                using (var p = Rounded(dd.List, 7)) using (var b = new SolidBrush(Card)) g.FillPath(b, p);
+                using (var p = Rounded(dd.List, 7)) using (var pen = new Pen(Line, 2)) g.DrawPath(pen, p);
+                for (int i = 0; i < dd.Options.Count; i++)
+                {
+                    var row = dd.OptionBox(i);
+                    if (i == dd.Selected)
+                        using (var p = Rounded(RectangleF.Inflate(row, -3, -3), 6)) using (var b = new SolidBrush(Accent)) g.FillPath(b, p);
+                    g.DrawString(dd.Options[i], _small, ink, new RectangleF(row.X + 10, row.Y, row.Width - 10, row.Height), left);
+                }
                 break;
             }
         }

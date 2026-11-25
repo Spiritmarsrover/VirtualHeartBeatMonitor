@@ -22,6 +22,10 @@ Do not use for medicine or heath.
 - Shows it on your wrist and in a "Heart rate" tab in the SteamVR dashboard.
 - Optional: a small heart HUD in your view, its colour shows what the measurement is doing
   (red: measuring, orange: unsure, grey: stay still, blue: moving, dark: no data).
+- Graph of the last 1 minute up to 1 hour (pick it above the graph).
+- Keeps a heart rate log (one row per second, CSV, in the `heart-rate-log` folder next to the
+  app; turn off with **Keep a heart rate log**). **Export heart rate log** saves it as one CSV
+  on your Desktop.
 - Optional: vibrates your controllers on each beat, measures breathing with a chest tracker.
 - Runs on Windows (PC VR) and natively on the Steam Frame (standalone).
 

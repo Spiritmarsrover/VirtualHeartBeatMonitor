@@ -88,6 +88,39 @@ public sealed class HudSettings
     public bool Enabled { get; set; } = false;
 }
 
+public sealed class HeartRateLogSettings
+{
+    /// <summary>
+    /// Write the heart rate to a CSV file (one row per second, one file per day) in the
+    /// heart-rate-log folder next to the app. "Export heart rate log" joins them into one file on the Desktop.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+}
+
+public sealed class GraphSettings
+{
+    /// <summary>The time windows offered (seconds, menu text). LiveSession keeps the longest one.</summary>
+    public static readonly (int Seconds, string Text)[] Windows =
+    [
+        (60, "Last 1 minute"), (120, "Last 2 minutes"), (300, "Last 5 minutes"), (600, "Last 10 minutes"),
+        (1800, "Last 30 minutes"), (3600, "Last 1 hour"),
+    ];
+
+    public static int LongestSeconds => Windows[^1].Seconds;
+
+    /// <summary>Time shown by the graph in the window and the SteamVR dashboard (the wrist panel always shows 1 minute).</summary>
+    public int Seconds { get; set; } = 120;
+
+    /// <summary>The offered window closest to <see cref="Seconds"/>.</summary>
+    [JsonIgnore]
+    public int Index => Array.IndexOf(Windows, Windows.MinBy(w => Math.Abs(w.Seconds - Seconds)));
+
+    [JsonIgnore] public double WindowSeconds => Windows[Index].Seconds;
+    [JsonIgnore] public string Title => Windows[Index].Text;
+
+    public void Select(int index) => Seconds = Windows[Math.Clamp(index, 0, Windows.Length - 1)].Seconds;
+}
+
 public sealed class GeneralSettings
 {
     /// <summary>Show the desktop window. When off, the app runs from the SteamVR dashboard and the tray icon.</summary>
@@ -105,6 +138,8 @@ public sealed class AppSettings
     public HapticsSettings Haptics { get; set; } = new();
     public BeatSettings Beats { get; set; } = new();
     public HudSettings Hud { get; set; } = new();
+    public GraphSettings Graph { get; set; } = new();
+    public HeartRateLogSettings HeartRateLog { get; set; } = new();
     public GeneralSettings General { get; set; } = new();
 
     private static readonly JsonSerializerOptions Json = new()

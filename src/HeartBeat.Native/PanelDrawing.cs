@@ -31,7 +31,7 @@ internal static class Shapes
     {
         var (min, max) = GraphScale.Range(history, fine);
         float labelWidth = font.Measure("000") + 4, inset = font.LineHeight / 2 + 1;
-        var plot = new RectangleF(area.X + labelWidth, area.Y + inset, area.Width - labelWidth, area.Height - 2 * inset);
+        var plot = new RectangleF(area.X + labelWidth, area.Y + inset, area.Width - 2 * labelWidth, area.Height - 2 * inset); // labels on both sides
         double end = GraphScale.RightEdge(history, now);
         float Y(double bpm) => GraphScale.Y(bpm, min, max, plot.Top, plot.Bottom);
         float X(double t) => plot.Right - (float)((end - t) / seconds) * plot.Width;
@@ -43,11 +43,16 @@ internal static class Shapes
             if (l.Dashed)
                 for (float x = plot.X; x < plot.Right; x += 6) c.FillRect(new RectangleF(x, y - 0.5f, Math.Min(3, plot.Right - x), 1), dashed);
             else c.FillRect(new RectangleF(plot.X, y - 0.5f, plot.Width, 1), grid);
-            if (l.Label) c.DrawTextRight(l.Value.ToString("0"), font, label, plot.X - 4, y);
+            if (l.Label)
+            {
+                string text = l.Value.ToString("0");
+                c.DrawTextRight(text, font, label, plot.X - 4, y);
+                c.DrawText(text, font, label, plot.Right + 4, y - font.LineHeight / 2);
+            }
         }
 
         c.SetClip(plot);
-        var recent = history.Where(p => end - p.t <= seconds).ToList();
+        var recent = GraphScale.Thin(history.Where(p => end - p.t <= seconds).ToList(), (int)plot.Width);
         foreach (var run in GraphScale.Runs(recent, fine))
         {
             var points = run.Select(p => new PointF(X(p.t), Y(p.bpm))).ToList();
@@ -136,6 +141,7 @@ internal sealed class DashboardDrawer
         c.DrawText(DashboardModel.Title, UiFont.Bold22, Ink, 28, 14);
         c.DrawText(DashboardModel.Description, UiFont.Regular16, Muted, 28, 44);
         DrawLive(c, session);
+        Model.GraphMenu.Shown = session != null;
         c.DrawText("Settings", UiFont.Bold22, Muted, 500, 26 + DashboardModel.Header);
         foreach (var w in Model.Widgets) DrawWidget(c, w);
         return c;
@@ -163,9 +169,9 @@ internal sealed class DashboardDrawer
         {
             c.DrawText(BeatsLine(session), UiFont.Regular16, Muted, 52, y);
             y += 30;
-            c.DrawText("Last 2 minutes", UiFont.Regular16, Muted, 52, y);
-            y += 22;
-            Shapes.Graph(c, new RectangleF(48, y, 400, 240), session.GetHistory(GraphSeconds), HostClock.Now, GraphSeconds,
+            y += 22; // the graph's time menu (a widget, drawn with the settings)
+            double seconds = Model.GraphSeconds;
+            Shapes.Graph(c, new RectangleF(48, y, 400, 240), session.GetHistory(seconds), HostClock.Now, seconds,
                 Accent, Accent.WithAlpha(50), Line, Muted, UiFont.Regular13);
             y += 248;
             c.FillRect(new RectangleF(52, y, 392, 1), Line);
@@ -228,6 +234,30 @@ internal sealed class DashboardDrawer
                 c.FillRoundedRect(btn.Box, 8, Line);
                 c.DrawTextCentered(btn.Label, UiFont.Regular16, Ink, btn.Box);
                 break;
+            case Dropdown { Shown: false }:
+                break;
+            case Dropdown dd:
+            {
+                var box = dd.Bounds;
+                var font = UiFont.Regular16;
+                c.FillRoundedRect(box, 7, Line);
+                c.DrawText(dd.Options[dd.Selected], font, Ink, box.X + 10, box.Y + (box.Height - font.LineHeight) / 2);
+                float ax = box.Right - 18, ay = box.Y + box.Height / 2;
+                c.FillPolygon(dd.Open
+                    ? [new PointF(ax - 5, ay + 3), new PointF(ax + 5, ay + 3), new PointF(ax, ay - 3)]
+                    : [new PointF(ax - 5, ay - 3), new PointF(ax + 5, ay - 3), new PointF(ax, ay + 3)], Ink);
+                if (!dd.Open) break;
+                var list = dd.List;
+                c.FillRoundedRect(RectangleF.Inflate(list, 2, 2), 8, Line); // border
+                c.FillRoundedRect(list, 7, Card);
+                for (int i = 0; i < dd.Options.Count; i++)
+                {
+                    var row = dd.OptionBox(i);
+                    if (i == dd.Selected) c.FillRoundedRect(RectangleF.Inflate(row, -3, -3), 6, Accent);
+                    c.DrawText(dd.Options[i], font, Ink, row.X + 10, row.Y + (row.Height - font.LineHeight) / 2);
+                }
+                break;
+            }
         }
     }
 

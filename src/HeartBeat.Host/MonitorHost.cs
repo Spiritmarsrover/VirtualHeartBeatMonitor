@@ -124,6 +124,56 @@ public sealed class MonitorHost : IDisposable
         }
     }
 
+    private readonly HeartRateLog _log = new();
+    private bool _logErrorShown;
+
+    /// <summary>Raised with the CSV path when the heart rate log was exported (any thread).</summary>
+    public event Action<string>? LogExported;
+    /// <summary>Raised with a message when the export failed (any thread).</summary>
+    public event Action<string>? LogExportFailed;
+
+    /// <summary>Joins the heart rate log into one CSV on the Desktop (in the background).</summary>
+    public void ExportLog() => Task.Run(() =>
+    {
+        try
+        {
+            string path = HeartRateLog.Export(DiagnosticsReport.OutputFolder());
+            ShowNotice("heart rate log saved to the Desktop");
+            LogExported?.Invoke(path);
+        }
+        catch (Exception e)
+        {
+            AppLog.Write($"Heart rate log export failed: {e}");
+            ShowNotice("heart rate log export failed");
+            LogExportFailed?.Invoke(e.Message);
+        }
+    });
+
+    /// <summary>A short message in the status line for 10 seconds (not during a diagnostics recording).</summary>
+    private void ShowNotice(string text)
+    {
+        if (Session is not { } session || _diagnostics != null) return;
+        _diagnosticsNoticeUntil = HostClock.Now + 10;
+        session.Notice = text;
+    }
+
+    private void LogSnapshot(LiveSession session)
+    {
+        if (!Settings.HeartRateLog.Enabled) { _log.Close(); return; }
+        try
+        {
+            _log.Write(DateTimeOffset.Now, HudStatus.For(session), session.LatestSnapshot?.Heart.Confidence ?? 0);
+            _logErrorShown = false;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _log.Close();
+            if (_logErrorShown) return;
+            _logErrorShown = true;
+            LastError = $"Heart rate log: {e.Message}";
+        }
+    }
+
     /// <summary>
     /// "Move wrist panel" mode: while on, the panel can be grabbed with the other hand and placed.
     /// Not saved; turn it off when the panel is where you want it.
@@ -208,7 +258,11 @@ public sealed class MonitorHost : IDisposable
             if (SteamVrAutoStart.Register(vr, exe) is { } registerError) AppLog.Write(registerError);
             AutoStartEnabled = SteamVrAutoStart.IsEnabled(vr);
             using var session = new LiveSession(vr, Settings);
-            session.SnapshotReady += snap => Osc?.OnSnapshot(snap, HostClock.Now);
+            session.SnapshotReady += snap =>
+            {
+                Osc?.OnSnapshot(snap, HostClock.Now);
+                LogSnapshot(session);
+            };
             session.Beat += b =>
             {
                 Osc?.OnBeat(b);
@@ -270,6 +324,7 @@ public sealed class MonitorHost : IDisposable
                     while (_diagnostics != null && HostClock.Now - started < 10) { TickDiagnostics(session, stopNow: true); Thread.Sleep(50); }
                 }
                 Osc?.Disconnect();
+                _log.Close();
                 Session = null;
                 Connected = false;
             }
